@@ -11,7 +11,7 @@ The library name is derived from **Z**ero-**I**nertia **M**atrix **Mat**hematics
 ## ✨ Features
 
   * **N-Dimensional Support**: Provides generic data structures (`Vector`, `Matrix`) capable of handling arbitrary dimensions.
-  * **3D/4D Optimization**: For maximum performance in 3D graphics, dedicated **fixed-size structs** ($\mathbf{Vec3}, \mathbf{Vec4}, \mathbf{Mat4}$) will be provided in separate packages in the future.
+  * **3D/4D Optimization**: For maximum performance in 3D graphics, dedicated **fixed-size structs** (`Vec3`, `Vec4`, `Mat4`) will be provided in separate packages in the future.
   * **Go Native**: Implemented purely in Go, avoiding reliance on Cgo or external dependencies, allowing it to leverage Go's concurrency features and memory management.
   * **Robust Error Handling**: Utilizes Go's idiomatic `error` returns for invalid operations, such as dimension mismatches, enhancing code safety.
 
@@ -22,10 +22,10 @@ The library name is derived from **Z**ero-**I**nertia **M**atrix **Mat**hematics
 You can add `zimmat` to your project using the standard `go get` command:
 
 ```bash
-go get github.com/saturnengine/zimmat.git
+go get github.com/saturnengine/zimmat
 ```
 
-*(This assumes the path after you publish to GitHub.)*
+*Note: Replace with your actual module path if different.*
 
 -----
 
@@ -40,7 +40,7 @@ package main
 
 import (
 	"fmt"
-	"github.com/saturnengine/zimmat.git/linalg" 
+	"github.com/saturnengine/zimmat/linalg"
 )
 
 func main() {
@@ -68,11 +68,53 @@ func main() {
 
 ### 2\. Matrix Operations
 
-*(Implementation coming soon. The `Matrix` struct will be added to the `linalg` package.)*
+The [`Matrix`](linalg/matrix.go:8-14) struct is fully implemented with comprehensive linear algebra operations.
 
 ```go
-// matrix := linalg.NewMatrix(4, 4, data...) // Create a 4x4 matrix
-// transform := matrix.MultiplyVector(v)      // Matrix-Vector multiplication
+package main
+
+import (
+	"fmt"
+	"github.com/saturnengine/zimmat/linalg"
+)
+
+func main() {
+	// Create a 3x3 matrix
+	data := [][]float64{
+		{1.0, 2.0, 3.0},
+		{4.0, 5.0, 6.0},
+		{7.0, 8.0, 9.0},
+	}
+	matrix, err := linalg.NewMatrix(data)
+	if err != nil {
+		panic(err)
+	}
+
+	// Matrix operations
+	transposed := matrix.Transpose()
+	fmt.Printf("Transposed matrix: %dx%d\n", transposed.Rows, transposed.Cols)
+
+	// Matrix multiplication
+	identity := [][]float64{
+		{1.0, 0.0, 0.0},
+		{0.0, 1.0, 0.0},
+		{0.0, 0.0, 1.0},
+	}
+	identityMatrix, _ := linalg.NewMatrix(identity)
+	
+	result, err := matrix.Multiply(identityMatrix)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("Matrix multiplication result: %dx%d\n", result.Rows, result.Cols)
+
+	// Calculate determinant (for square matrices)
+	det, err := matrix.Determinant()
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("Determinant: %.1f\n", det)
+}
 ```
 
 -----
@@ -84,7 +126,7 @@ If you are developing or testing locally, ensure your `go.mod` module name match
 1.  **Initialize the Go Module** (Run in the project root):
 
     ```bash
-    go mod init github.com/saturnengine/zimmat.git
+    go mod init github.com/saturnengine/zimmat
     ```
 
 2.  **Run Tests**:
@@ -109,4 +151,4 @@ We welcome bug reports, feature suggestions, and pull requests\! Help us grow `z
 
 ## 📜 License
 
-This project is licensed under the **[Insert appropriate license, e.g., MIT License]**.
+This project is licensed under the **MIT License**.
