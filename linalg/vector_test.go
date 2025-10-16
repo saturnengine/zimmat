@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	//"zimmat/linalg" // モジュール名に合わせてインポートパスを変更してください
-	"github.com/saturnengine/zimmat.git/linalg"
+	"github.com/saturnengine/zimmat/linalg"
 )
 
 // floatの比較で許容される誤差 (epsilon)

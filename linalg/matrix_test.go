@@ -2,7 +2,7 @@ package linalg_test
 
 import (
 	"testing"
-	"github.com/saturnengine/zimmat.git/linalg" // モジュール名に合わせてインポートパスを修正
+	"github.com/saturnengine/zimmat/linalg" // モジュール名に合わせてインポートパスを修正
 )
 
 // testMatricesEqual は2つの行列が等しいか（要素、行、列が許容誤差内で一致するか）をチェックします。
