@@ -4,7 +4,7 @@
 [![Go Reference](https://pkg.go.dev/badge/github.com/saturnengine/zimmat.svg)](https://pkg.go.dev/github.com/saturnengine/zimmat)
 [![Go Report Card](https://goreportcard.com/badge/github.com/saturnengine/zimmat)](https://goreportcard.com/report/github.com/saturnengine/zimmat)
 [![CI](https://github.com/saturnengine/zimmat/actions/workflows/ci.yaml/badge.svg)](https://github.com/saturnengine/zimmat/actions/workflows/ci.yaml)
-[![codecov](https://codecov.io/gh/saturnengine/zimmat/graph/badge.svg?token=6A4Y75PXH5)](https://codecov.io/gh/saturnengine/zimmat)
+[![codecov](https://codecov.io/gh/saturnengine/zimmat/graph/badge.svg?token=M0HBOLNGFI)](https://codecov.io/gh/saturnengine/zimmat)
 
 ## 🚀 Overview
 
