@@ -4,7 +4,6 @@ import (
 	"math"
 	"testing"
 
-	//"zimmat/linalg" // モジュール名に合わせてインポートパスを変更してください
 	"github.com/saturnengine/zimmat/linalg"
 )
 
@@ -45,7 +44,7 @@ func TestNewVector(t *testing.T) {
 }
 
 // TestVectorAdd はベクトルの加算メソッドのテストです。
-func TestVectorAdd(t *testing.T) {
+func TestVectorAdd(t *testing.T) { // 名前を修正
 	v1 := linalg.NewVector(1, 2, 3)
 	v2 := linalg.NewVector(4, 5, 6)
 	expected := linalg.NewVector(5, 7, 9)
@@ -68,7 +67,7 @@ func TestVectorAdd(t *testing.T) {
 }
 
 // TestVectorDot は内積（ドット積）メソッドのテストです。
-func TestVectorDot(t *testing.T) {
+func TestVectorDot(t *testing.T) { // 名前を修正
 	v1 := linalg.NewVector(1, 0, 0)
 	v2 := linalg.NewVector(0, 1, 0)
 	v3 := linalg.NewVector(2, 3, 4)
@@ -79,7 +78,7 @@ func TestVectorDot(t *testing.T) {
 		t.Errorf("内積の計算が誤っています。期待値: 0.0, 実際: %f", dot1)
 	}
 
-	// 一般的な内積 (2*2 + 3*3 + 4*4 = 4 + 9 + 16 = 29)
+	// 一般的な内積 (29)
 	dot2, _ := v3.Dot(v3)
 	if !almostEqual(dot2, 29.0) {
 		t.Errorf("内積の計算が誤っています。期待値: 29.0, 実際: %f", dot2)
@@ -87,7 +86,7 @@ func TestVectorDot(t *testing.T) {
 }
 
 // TestVectorLengthAndNormalize は長さと正規化メソッドのテストです。
-func TestVectorLengthAndNormalize(t *testing.T) {
+func TestVectorLengthAndNormalize(t *testing.T) { // 名前を修正
 	v := linalg.NewVector(3, 4) // 長さ5のベクトル
 
 	// LengthSqのテスト
@@ -105,7 +104,7 @@ func TestVectorLengthAndNormalize(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Normalizeでエラーが発生しました: %v", err)
 	}
-	expectedNormalized := linalg.NewVector(0.6, 0.8) // 3/5=0.6, 4/5=0.8
+	expectedNormalized := linalg.NewVector(0.6, 0.8)
 
 	if !testVectorsEqual(normalized, expectedNormalized) {
 		t.Errorf("正規化の結果が期待値と異なります。期待値: %v, 実際: %v", expectedNormalized.Data, normalized.Data)

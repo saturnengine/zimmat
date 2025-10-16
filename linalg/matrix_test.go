@@ -2,8 +2,12 @@ package linalg_test
 
 import (
 	"testing"
-	"github.com/saturnengine/zimmat/linalg" // モジュール名に合わせてインポートパスを修正
+	"github.com/saturnengine/zimmat/linalg" 
 )
+
+// almostEqual, floatTolerance, testVectorsEqual は vector_test.go で定義されているが、
+// matrix_test.go でも必要なので、ここでは testMatricesEqual のみ再掲し、
+// 前提として almostEqual 等は存在するものとします。
 
 // testMatricesEqual は2つの行列が等しいか（要素、行、列が許容誤差内で一致するか）をチェックします。
 func testMatricesEqual(m1, m2 linalg.Matrix) bool {
@@ -11,7 +15,7 @@ func testMatricesEqual(m1, m2 linalg.Matrix) bool {
 		return false
 	}
 	if len(m1.Data) != len(m2.Data) {
-		return false // サイズが一致すればDataの長さも一致するはずだが、念のため
+		return false
 	}
 
 	for i := range m1.Data {
@@ -25,31 +29,49 @@ func testMatricesEqual(m1, m2 linalg.Matrix) bool {
 // TestNewMatrix は NewMatrix 関数のテストです。
 func TestNewMatrix(t *testing.T) {
 	// 正常な初期化 (2x3)
-	m, err := linalg.NewMatrix(2, 3, 1, 2, 3, 4, 5, 6)
+	data := [][]float64{
+		{1.0, 2.0, 3.0},
+		{4.0, 5.0, 6.0},
+	}
+	m, err := linalg.NewMatrix(data) // ★ 多次元スライスで呼び出し
 	if err != nil {
 		t.Fatalf("NewMatrixでエラーが発生しました: %v", err)
 	}
 	if m.Rows != 2 || m.Cols != 3 {
 		t.Errorf("サイズが期待値と異なります。期待値: 2x3, 実際: %dx%d", m.Rows, m.Cols)
 	}
+    
+    // 内部のフラットデータを確認
+    expectedFlatData := []float64{1.0, 2.0, 3.0, 4.0, 5.0, 6.0}
+    for i := range expectedFlatData {
+        if !almostEqual(m.Data[i], expectedFlatData[i]) {
+            t.Errorf("内部データが期待値と異なります。期待値: %v, 実際: %v", expectedFlatData, m.Data)
+            break
+        }
+    }
 
-	// 要素数不一致のエラーテスト
-	_, err = linalg.NewMatrix(2, 3, 1, 2, 3, 4, 5) // 6要素必要だが5つ
+
+	// 不正な形状のエラーテスト (行によって列数が異なる)
+	badData := [][]float64{
+		{1, 2, 3},
+		{4, 5}, // 3列必要だが2列しかない
+	}
+	_, err = linalg.NewMatrix(badData)
 	if err == nil {
-		t.Error("要素数不一致の場合にエラーが返されませんでした")
+		t.Error("不正な形状の場合にエラーが返されませんでした")
 	}
 
-	// 無効なサイズのエラーテスト
-	_, err = linalg.NewMatrix(0, 3, 1, 2, 3)
+	// 空の入力のエラーテスト
+	_, err = linalg.NewMatrix([][]float64{})
 	if err == nil {
-		t.Error("無効な行数でエラーが返されませんでした")
+		t.Error("空の入力でエラーが返されませんでした")
 	}
 }
 
 // TestMatrixGetAndSet は Get と Set メソッドのテストです。
-func TestMatrixGetAndSet(t *testing.T) {
-	data := []float64{1.1, 2.2, 3.3, 4.4}
-	m, _ := linalg.NewMatrix(2, 2, data...)
+func TestMatrixGetAndSet(t *testing.T) { // 名前を修正
+	data := [][]float64{{1.1, 2.2}, {3.3, 4.4}} // ★ 多次元スライス
+	m, _ := linalg.NewMatrix(data)
 
 	// Getのテスト
 	val, err := m.Get(1, 0)
@@ -81,10 +103,10 @@ func TestMatrixGetAndSet(t *testing.T) {
 }
 
 // TestMatrixAdd は行列の加算メソッドのテストです。
-func TestMatrixAdd(t *testing.T) {
-	m1, _ := linalg.NewMatrix(2, 2, 1, 2, 3, 4)
-	m2, _ := linalg.NewMatrix(2, 2, 5, 6, 7, 8)
-	expected, _ := linalg.NewMatrix(2, 2, 6, 8, 10, 12)
+func TestMatrixAdd(t *testing.T) { // 名前を修正
+	m1, _ := linalg.NewMatrix([][]float64{{1, 2}, {3, 4}})        // ★ 修正
+	m2, _ := linalg.NewMatrix([][]float64{{5, 6}, {7, 8}})        // ★ 修正
+	expected, _ := linalg.NewMatrix([][]float64{{6, 8}, {10, 12}}) // ★ 修正
 
 	result, err := m1.Add(m2)
 	if err != nil {
@@ -96,7 +118,7 @@ func TestMatrixAdd(t *testing.T) {
 	}
 
 	// サイズ不一致のテスト
-	m3, _ := linalg.NewMatrix(2, 3, 1, 2, 3, 4, 5, 6)
+	m3, _ := linalg.NewMatrix([][]float64{{1, 2, 3}, {4, 5, 6}})
 	_, err = m1.Add(m3)
 	if err == nil {
 		t.Error("サイズ不一致の場合にエラーが返されませんでした")
@@ -104,14 +126,25 @@ func TestMatrixAdd(t *testing.T) {
 }
 
 // TestMatrixMultiply は行列の乗算メソッドのテストです。
-func TestMatrixMultiply(t *testing.T) {
-	// A (2x3) * B (3x2) = C (2x2)
-	m_A, _ := linalg.NewMatrix(2, 3, 1, 2, 3, 4, 5, 6)
-	m_B, _ := linalg.NewMatrix(3, 2, 7, 8, 9, 10, 11, 12)
-	// C[0][0] = 1*7 + 2*9 + 3*11 = 7 + 18 + 33 = 58
-	// C[1][0] = 4*7 + 5*9 + 6*11 = 28 + 45 + 66 = 139
-	// ...
-	expected, _ := linalg.NewMatrix(2, 2, 58, 64, 139, 154)
+func TestMatrixMultiply(t *testing.T) { // 名前を修正
+	// A (2x3)
+	m_A, _ := linalg.NewMatrix([][]float64{
+		{1, 2, 3}, 
+		{4, 5, 6},
+	}) 
+    
+	// B (3x2)
+	m_B, _ := linalg.NewMatrix([][]float64{
+		{7, 8}, 
+		{9, 10}, 
+		{11, 12},
+	}) 
+
+	// 期待される結果 C (2x2)
+	expected, _ := linalg.NewMatrix([][]float64{
+		{58, 64}, 
+		{139, 154},
+	}) 
 
 	result, err := m_A.Multiply(m_B)
 	if err != nil {
@@ -123,7 +156,7 @@ func TestMatrixMultiply(t *testing.T) {
 	}
 
 	// 乗算ルール違反のテスト
-	m_C, _ := linalg.NewMatrix(2, 2, 1, 2, 3, 4)
+	m_C, _ := linalg.NewMatrix([][]float64{{1, 2}, {3, 4}})
 	_, err = m_A.Multiply(m_C) // A(2x3) * C(2x2) -> 3 != 2 でエラー
 	if err == nil {
 		t.Error("乗算ルール違反の場合にエラーが返されませんでした")

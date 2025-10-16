@@ -7,8 +7,8 @@ import (
 
 // Vector はn次元のベクトルを表す汎用的な構造体です。
 type Vector struct {
-	Data []float64
-	Dim  int
+	Data []float64 // ベクトルの要素
+	Dim  int       // 次元数
 }
 
 // NewVector は指定された要素から新しい Vector を作成します。
@@ -49,9 +49,8 @@ func (v Vector) Dot(other Vector) (float64, error) {
 }
 
 // LengthSq はベクトルの長さ（ノルム）の二乗を計算します。
-// 平方根の計算を省くことでパフォーマンスが向上します。
 func (v Vector) LengthSq() float64 {
-	sq, _ := v.Dot(v) // 自分自身との内積は長さの二乗
+	sq, _ := v.Dot(v)
 	return sq
 }
 

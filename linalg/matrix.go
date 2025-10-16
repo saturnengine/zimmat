@@ -12,18 +12,29 @@ type Matrix struct {
 	Cols int       // 列数 (m)
 }
 
-// NewMatrix は指定された行数、列数、要素から新しい Matrix を作成します。
-// 要素の数（len(elements)）は Rows * Cols と一致する必要があります。
-func NewMatrix(rows, cols int, elements ...float64) (Matrix, error) {
-	if rows <= 0 || cols <= 0 {
-		return Matrix{}, fmt.Errorf("行数と列数は1以上である必要があります")
+// NewMatrix は多次元スライス [][]float64 から新しい Matrix を作成します。
+// 行列が不正な形状（行によって列数が異なるなど）の場合はエラーを返します。
+func NewMatrix(data [][]float64) (Matrix, error) {
+	if len(data) == 0 {
+		return Matrix{}, fmt.Errorf("入力データに行がありません")
 	}
-	if len(elements) != rows*cols {
-		return Matrix{}, fmt.Errorf("指定された要素数（%d）は、行列のサイズ（%d x %d = %d）と一致しません", len(elements), rows, cols, rows*cols)
+
+	rows := len(data)
+	cols := len(data[0]) // 最初の行の列数を基準とする
+	totalSize := rows * cols
+	
+	flatData := make([]float64, 0, totalSize)
+
+	for i, rowData := range data {
+		// すべての行が同じ列数を持つかチェック
+		if len(rowData) != cols {
+			return Matrix{}, fmt.Errorf("行 %d の列数が異なります: 期待値 %d, 実際 %d", i, cols, len(rowData))
+		}
+		flatData = append(flatData, rowData...)
 	}
 
 	return Matrix{
-		Data: elements,
+		Data: flatData,
 		Rows: rows,
 		Cols: cols,
 	}, nil
@@ -61,13 +72,15 @@ func (m Matrix) Add(other Matrix) (Matrix, error) {
 		resultData[i] = m.Data[i] + other.Data[i]
 	}
 
-	// エラーは発生しないことが保証される
-	result, _ := NewMatrix(m.Rows, m.Cols, resultData...)
-	return result, nil
+	// NewMatrixのロジックを省略し、直接 Matrix 構造体を返す
+	return Matrix{
+        Data: resultData,
+        Rows: m.Rows,
+        Cols: m.Cols,
+    }, nil
 }
 
 // Multiply は現在の行列（A）に別の行列（B）を乗算した新しい行列（C = A * B）を返します。
-// m.Cols (Aの列数) と other.Rows (Bの行数) が一致しない場合はエラーを返します。
 func (m Matrix) Multiply(other Matrix) (Matrix, error) {
 	if m.Cols != other.Rows {
 		return Matrix{}, fmt.Errorf("行列の乗算ルールに違反します: Aの列数(%d) と Bの行数(%d) が一致しません", m.Cols, other.Rows)
@@ -91,6 +104,9 @@ func (m Matrix) Multiply(other Matrix) (Matrix, error) {
 		}
 	}
 
-	result, _ := NewMatrix(resultRows, resultCols, resultData...)
-	return result, nil
+	return Matrix{
+        Data: resultData,
+        Rows: resultRows,
+        Cols: resultCols,
+    }, nil
 }
