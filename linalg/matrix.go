@@ -20,9 +20,9 @@ func NewMatrix(data [][]float64) (Matrix, error) {
 	}
 
 	rows := len(data)
-	cols := len(data[0]) 
+	cols := len(data[0])
 	totalSize := rows * cols
-	
+
 	flatData := make([]float64, 0, totalSize)
 
 	for i, rowData := range data {
@@ -80,10 +80,10 @@ func (m Matrix) Multiply(other Matrix) (Matrix, error) {
 	resultCols := other.Cols
 	resultData := make([]float64, resultRows*resultCols)
 
-	for i := 0; i < resultRows; i++ { 
-		for j := 0; j < resultCols; j++ { 
+	for i := 0; i < resultRows; i++ {
+		for j := 0; j < resultCols; j++ {
 			var sum float64
-			for k := 0; k < m.Cols; k++ { 
+			for k := 0; k < m.Cols; k++ {
 				sum += m.Data[i*m.Cols+k] * other.Data[k*other.Cols+j]
 			}
 			resultData[i*resultCols+j] = sum
@@ -96,7 +96,7 @@ func (m Matrix) Multiply(other Matrix) (Matrix, error) {
 // Transpose は現在の行列の転置行列を返します。
 func (m Matrix) Transpose() Matrix {
 	resultData := make([]float64, m.Rows*m.Cols)
-	
+
 	// A[i][j] は B[j][i] になる (B.Rows = A.Cols, B.Cols = A.Rows)
 	for i := 0; i < m.Rows; i++ {
 		for j := 0; j < m.Cols; j++ {
@@ -105,7 +105,7 @@ func (m Matrix) Transpose() Matrix {
 			resultData[transposedIndex] = m.Data[originalIndex]
 		}
 	}
-	
+
 	return Matrix{
 		Data: resultData,
 		Rows: m.Cols, // 行数と列数が入れ替わる
@@ -129,8 +129,8 @@ func (m Matrix) Determinant() (float64, error) {
 		// ad - bc
 		return m.Data[0]*m.Data[3] - m.Data[1]*m.Data[2], nil
 	}
-    
-    // 3x3以上は再帰的な余因子展開を使用（計算コストは高い）
+
+	// 3x3以上は再帰的な余因子展開を使用（計算コストは高い）
 	var det float64
 	for j := 0; j < n; j++ {
 		// i=0 の行について余因子展開
@@ -138,24 +138,24 @@ func (m Matrix) Determinant() (float64, error) {
 		if j%2 != 0 {
 			sign = -1.0
 		}
-        
-        // Minor行列の作成
-        minorData := make([][]float64, n-1)
-        for row := 1; row < n; row++ { // 0行目を除外
-            minorRow := make([]float64, 0, n-1)
-            for col := 0; col < n; col++ {
-                if col != j { // j列目を除外
-                    val, _ := m.Get(row, col)
-                    minorRow = append(minorRow, val)
-                }
-            }
-            minorData[row-1] = minorRow
-        }
-        
-        minorM, _ := NewMatrix(minorData) // Minor行列
-        minorDet, _ := minorM.Determinant()
-        
-        a0j, _ := m.Get(0, j)
+
+		// Minor行列の作成
+		minorData := make([][]float64, n-1)
+		for row := 1; row < n; row++ { // 0行目を除外
+			minorRow := make([]float64, 0, n-1)
+			for col := 0; col < n; col++ {
+				if col != j { // j列目を除外
+					val, _ := m.Get(row, col)
+					minorRow = append(minorRow, val)
+				}
+			}
+			minorData[row-1] = minorRow
+		}
+
+		minorM, _ := NewMatrix(minorData) // Minor行列
+		minorDet, _ := minorM.Determinant()
+
+		a0j, _ := m.Get(0, j)
 		det += sign * a0j * minorDet
 	}
 
@@ -184,9 +184,9 @@ func (m Matrix) Inverse() (Matrix, error) {
 	}
 
 	augmentedMatrix := Matrix{Data: augmentedData, Rows: n, Cols: augmentedCols}
-	const epsilon = 1e-9 
+	const epsilon = 1e-9
 
-	for i := 0; i < n; i++ { 
+	for i := 0; i < n; i++ {
 		pivotRow := i
 		for k := i + 1; k < n; k++ {
 			if math.Abs(augmentedMatrix.Data[k*augmentedCols+i]) > math.Abs(augmentedMatrix.Data[pivotRow*augmentedCols+i]) {
@@ -229,72 +229,80 @@ func (m Matrix) Inverse() (Matrix, error) {
 			inverseData[i*n+j] = augmentedMatrix.Data[i*augmentedCols+n+j]
 		}
 	}
-    
-    return Matrix{Data: inverseData, Rows: n, Cols: n}, nil
+
+	return Matrix{Data: inverseData, Rows: n, Cols: n}, nil
 }
 
 // IsDiagonal は行列が対角行列（非対角要素が全てゼロ）であるかをチェックします。
 func (m Matrix) IsDiagonal() bool {
-    if m.Rows != m.Cols { return false } // 対角行列は正方行列である必要がある
-    
-    const epsilon = 1e-9
-    for i := 0; i < m.Rows; i++ {
-        for j := 0; j < m.Cols; j++ {
-            if i != j {
-                if math.Abs(m.Data[i*m.Cols+j]) > epsilon {
-                    return false
-                }
-            }
-        }
-    }
-    return true
+	if m.Rows != m.Cols {
+		return false
+	} // 対角行列は正方行列である必要がある
+
+	const epsilon = 1e-9
+	for i := 0; i < m.Rows; i++ {
+		for j := 0; j < m.Cols; j++ {
+			if i != j {
+				if math.Abs(m.Data[i*m.Cols+j]) > epsilon {
+					return false
+				}
+			}
+		}
+	}
+	return true
 }
 
 // IsSymmetric は行列が対称行列（A = A^T）であるかをチェックします。
 func (m Matrix) IsSymmetric() bool {
-    if m.Rows != m.Cols { return false } 
-    
-    const epsilon = 1e-9
-    for i := 0; i < m.Rows; i++ {
-        for j := i + 1; j < m.Cols; j++ { // 対角要素より上の部分のみチェック
-            val_ij := m.Data[i*m.Cols+j]
-            val_ji := m.Data[j*m.Cols+i]
-            if math.Abs(val_ij - val_ji) > epsilon {
-                return false
-            }
-        }
-    }
-    return true
+	if m.Rows != m.Cols {
+		return false
+	}
+
+	const epsilon = 1e-9
+	for i := 0; i < m.Rows; i++ {
+		for j := i + 1; j < m.Cols; j++ { // 対角要素より上の部分のみチェック
+			val_ij := m.Data[i*m.Cols+j]
+			val_ji := m.Data[j*m.Cols+i]
+			if math.Abs(val_ij-val_ji) > epsilon {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 // IsUpperTriangular は行列が上三角行列（対角要素より下の要素が全てゼロ）であるかをチェックします。
 func (m Matrix) IsUpperTriangular() bool {
-    if m.Rows != m.Cols { return false }
-    
-    const epsilon = 1e-9
-    for i := 1; i < m.Rows; i++ { // 1行目から
-        for j := 0; j < i; j++ { // 対角要素より左下の要素をチェック
-            if math.Abs(m.Data[i*m.Cols+j]) > epsilon {
-                return false
-            }
-        }
-    }
-    return true
+	if m.Rows != m.Cols {
+		return false
+	}
+
+	const epsilon = 1e-9
+	for i := 1; i < m.Rows; i++ { // 1行目から
+		for j := 0; j < i; j++ { // 対角要素より左下の要素をチェック
+			if math.Abs(m.Data[i*m.Cols+j]) > epsilon {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 // IsLowerTriangular は行列が下三角行列（対角要素より上の要素が全てゼロ）であるかをチェックします。
 func (m Matrix) IsLowerTriangular() bool {
-    if m.Rows != m.Cols { return false }
-    
-    const epsilon = 1e-9
-    for i := 0; i < m.Rows; i++ {
-        for j := i + 1; j < m.Cols; j++ { // 対角要素より右上の要素をチェック
-            if math.Abs(m.Data[i*m.Cols+j]) > epsilon {
-                return false
-            }
-        }
-    }
-    return true
+	if m.Rows != m.Cols {
+		return false
+	}
+
+	const epsilon = 1e-9
+	for i := 0; i < m.Rows; i++ {
+		for j := i + 1; j < m.Cols; j++ { // 対角要素より右上の要素をチェック
+			if math.Abs(m.Data[i*m.Cols+j]) > epsilon {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 /*
