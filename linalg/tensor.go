@@ -71,25 +71,29 @@ type Tensor struct {
 //	t := linalg.NewTensor(2, 3)    // 2x3 matrix (6 elements)
 //	v := linalg.NewTensor(5)       // 5D vector (5 elements)
 //	cube := linalg.NewTensor(2, 2, 2) // 2x2x2 tensor (8 elements)
-func NewTensor(shape ...int) *Tensor {
+func NewTensor(shape ...int) (result *Tensor) {
 	if len(shape) == 0 {
-		return &Tensor{Data: []float64{}, Shape: []int{}, Rank: 0}
+		result = &Tensor{Data: []float64{}, Shape: []int{}, Rank: 0}
+		return
 	}
 
-	// 総要素数を計算
+	// Calculate total number of elements
 	size := 1
 	for _, dim := range shape {
 		if dim <= 0 {
-			panic(fmt.Sprintf("テンソルの次元は正の値である必要があります: %d", dim))
+			// Return empty tensor instead of panicking
+			result = &Tensor{Data: []float64{}, Shape: []int{}, Rank: 0}
+			return
 		}
 		size *= dim
 	}
 
-	return &Tensor{
+	result = &Tensor{
 		Data:  make([]float64, size),
-		Shape: append([]int(nil), shape...), // スライスをコピー
+		Shape: append([]int(nil), shape...), // Copy slice
 		Rank:  len(shape),
 	}
+	return
 }
 
 // NewTensorWithData creates a new tensor with the specified data and shape.
@@ -113,53 +117,58 @@ func NewTensor(shape ...int) *Tensor {
 //	if err != nil {
 //		panic(err)
 //	}
-func NewTensorWithData(data []float64, shape ...int) (*Tensor, error) {
+func NewTensorWithData(data []float64, shape ...int) (result *Tensor, err error) {
 	if len(shape) == 0 {
-		return &Tensor{Data: []float64{}, Shape: []int{}, Rank: 0}, nil
+		result = &Tensor{Data: []float64{}, Shape: []int{}, Rank: 0}
+		return
 	}
 
-	// 総要素数を計算
+	// Calculate total number of elements
 	expectedSize := 1
 	for _, dim := range shape {
 		if dim <= 0 {
-			return nil, fmt.Errorf("テンソルの次元は正の値である必要があります: %d", dim)
+			err = fmt.Errorf("tensor dimension must be positive: %d", dim)
+			return
 		}
 		expectedSize *= dim
 	}
 
 	if len(data) != expectedSize {
-		return nil, fmt.Errorf("データサイズ(%d)が形状(%v)と一致しません。期待値: %d", 
+		err = fmt.Errorf("data size (%d) does not match shape (%v). expected: %d",
 			len(data), shape, expectedSize)
+		return
 	}
 
-	return &Tensor{
-		Data:  append([]float64(nil), data...), // データをコピー
-		Shape: append([]int(nil), shape...),    // 形状をコピー
+	result = &Tensor{
+		Data:  append([]float64(nil), data...), // Copy data
+		Shape: append([]int(nil), shape...),    // Copy shape
 		Rank:  len(shape),
-	}, nil
+	}
+	return
 }
 
-// flatIndex は多次元インデックスを1次元インデックスに変換します。
-func (t *Tensor) flatIndex(indices []int) (int, error) {
+// flatIndex converts multi-dimensional indices to a one-dimensional index.
+func (t *Tensor) flatIndex(indices []int) (flatIdx int, err error) {
 	if len(indices) != t.Rank {
-		return 0, fmt.Errorf("インデックス数(%d)がテンソルの次元数(%d)と一致しません", 
+		err = fmt.Errorf("number of indices (%d) does not match tensor rank (%d)",
 			len(indices), t.Rank)
+		return
 	}
 
-	flatIdx := 0
 	multiplier := 1
-	
-	// 行優先（C-style）でインデックスを計算
+
+	// Calculate index in row-major (C-style) order
 	for i := t.Rank - 1; i >= 0; i-- {
 		if indices[i] < 0 || indices[i] >= t.Shape[i] {
-			return 0, fmt.Errorf("インデックス[%d]=%d が範囲外です（0-%d）", 
+			err = fmt.Errorf("index[%d]=%d is out of bounds (0-%d)",
 				i, indices[i], t.Shape[i]-1)
+			return
 		}
 		flatIdx += indices[i] * multiplier
 		multiplier *= t.Shape[i]
 	}
-	
-	return flatIdx, nil
+
+	return
 }
 
 // Get retrieves an element at the specified multi-dimensional indices.
@@ -180,12 +189,13 @@ func (t *Tensor) flatIndex(indices []int) (int, error) {
 //	t.Set(42.0, 1, 2)          // Set element at row 1, column 2
 //	val, err := t.Get(1, 2)    // Get element at row 1, column 2
 //	// val == 42.0
-func (t *Tensor) Get(indices ...int) (float64, error) {
+func (t *Tensor) Get(indices ...int) (value float64, err error) {
 	flatIdx, err := t.flatIndex(indices)
 	if err != nil {
-		return 0, err
+		return
 	}
-	return t.Data[flatIdx], nil
+	value = t.Data[flatIdx]
+	return
 }
 
 // Set assigns a value to the element at the specified multi-dimensional indices.
@@ -207,13 +217,13 @@ func (t *Tensor) Get(indices ...int) (float64, error) {
 //	if err != nil {
 //		panic(err)
 //	}
-func (t *Tensor) Set(value float64, indices ...int) error {
+func (t *Tensor) Set(value float64, indices ...int) (err error) {
 	flatIdx, err := t.flatIndex(indices)
 	if err != nil {
-		return err
+		return
 	}
 	t.Data[flatIdx] = value
-	return nil
+	return
 }
 
 // Size returns the total number of elements in the tensor.
@@ -226,8 +236,9 @@ func (t *Tensor) Set(value float64, indices ...int) error {
 //
 //	t := linalg.NewTensor(2, 3, 4) // 2x3x4 tensor
 //	size := t.Size() // Returns 24 (2 * 3 * 4)
-func (t *Tensor) Size() int {
-	return len(t.Data)
+func (t *Tensor) Size() (size int) {
+	size = len(t.Data)
+	return
 }
 
 // Clone creates a complete deep copy of the tensor.
@@ -242,154 +253,172 @@ func (t *Tensor) Size() int {
 //	original := linalg.NewTensor(2, 3)
 //	copy := original.Clone()
 //	copy.Set(42.0, 0, 0) // Doesn't affect original
-func (t *Tensor) Clone() *Tensor {
-	return &Tensor{
+func (t *Tensor) Clone() (result *Tensor) {
+	result = &Tensor{
 		Data:  append([]float64(nil), t.Data...),
 		Shape: append([]int(nil), t.Shape...),
 		Rank:  t.Rank,
 	}
+	return
 }
 
-// Reshape はテンソルの形状を変更します。総要素数は保持される必要があります。
-func (t *Tensor) Reshape(newShape ...int) (*Tensor, error) {
-	// 新しい形状の総要素数を計算
+// Reshape changes the shape of the tensor. The total number of elements must be preserved.
+func (t *Tensor) Reshape(newShape ...int) (result *Tensor, err error) {
+	// Calculate total number of elements in new shape
 	newSize := 1
 	for _, dim := range newShape {
 		if dim <= 0 {
-			return nil, fmt.Errorf("新しい形状の次元は正の値である必要があります: %d", dim)
+			err = fmt.Errorf("new shape dimension must be positive: %d", dim)
+			return
 		}
 		newSize *= dim
 	}
 
 	if newSize != len(t.Data) {
-		return nil, fmt.Errorf("新しい形状(%v)の総要素数(%d)が現在のデータサイズ(%d)と一致しません",
+		err = fmt.Errorf("new shape (%v) total elements (%d) does not match current data size (%d)",
 			newShape, newSize, len(t.Data))
+		return
 	}
 
-	return &Tensor{
-		Data:  append([]float64(nil), t.Data...), // データをコピー
-		Shape: append([]int(nil), newShape...),   // 新しい形状をコピー
+	result = &Tensor{
+		Data:  append([]float64(nil), t.Data...), // Copy data
+		Shape: append([]int(nil), newShape...),   // Copy new shape
 		Rank:  len(newShape),
-	}, nil
+	}
+	return
 }
 
-// Add はテンソル同士の要素ごとの加算を行います。
-func (t *Tensor) Add(other *Tensor) (*Tensor, error) {
+// Add performs element-wise addition between tensors.
+func (t *Tensor) Add(other *Tensor) (result *Tensor, err error) {
 	if !t.sameShape(other) {
-		return nil, fmt.Errorf("テンソルの形状が異なります: %v と %v", t.Shape, other.Shape)
+		err = fmt.Errorf("tensor shapes differ: %v and %v", t.Shape, other.Shape)
+		return
 	}
 
-	result := t.Clone()
+	result = t.Clone()
 	for i := range result.Data {
 		result.Data[i] += other.Data[i]
 	}
 
-	return result, nil
+	return
 }
 
-// Subtract はテンソル同士の要素ごとの減算を行います。
-func (t *Tensor) Subtract(other *Tensor) (*Tensor, error) {
+// Subtract performs element-wise subtraction between tensors.
+func (t *Tensor) Subtract(other *Tensor) (result *Tensor, err error) {
 	if !t.sameShape(other) {
-		return nil, fmt.Errorf("テンソルの形状が異なります: %v と %v", t.Shape, other.Shape)
+		err = fmt.Errorf("tensor shapes differ: %v and %v", t.Shape, other.Shape)
+		return
 	}
 
-	result := t.Clone()
+	result = t.Clone()
 	for i := range result.Data {
 		result.Data[i] -= other.Data[i]
 	}
 
-	return result, nil
+	return
 }
 
-// Scale はテンソルの全要素をスカラー値で乗算します。
-func (t *Tensor) Scale(scalar float64) *Tensor {
-	result := t.Clone()
+// Scale multiplies all tensor elements by a scalar value.
+func (t *Tensor) Scale(scalar float64) (result *Tensor) {
+	result = t.Clone()
 	for i := range result.Data {
 		result.Data[i] *= scalar
 	}
-	return result
+	return
 }
 
-// sameShape は2つのテンソルが同じ形状かどうかをチェックします。
-func (t *Tensor) sameShape(other *Tensor) bool {
+// sameShape checks if two tensors have the same shape.
+func (t *Tensor) sameShape(other *Tensor) (isSame bool) {
 	if t.Rank != other.Rank {
-		return false
+		isSame = false
+		return
 	}
 	for i := range t.Shape {
 		if t.Shape[i] != other.Shape[i] {
-			return false
+			isSame = false
+			return
 		}
 	}
-	return true
+	isSame = true
+	return
 }
 
-// IsVector はテンソルが1次元（ベクトル）かどうかをチェックします。
-func (t *Tensor) IsVector() bool {
-	return t.Rank == 1
+// IsVector checks if the tensor is 1-dimensional (vector).
+func (t *Tensor) IsVector() (isVector bool) {
+	isVector = t.Rank == 1
+	return
 }
 
-// IsMatrix はテンソルが2次元（行列）かどうかをチェックします。
-func (t *Tensor) IsMatrix() bool {
-	return t.Rank == 2
+// IsMatrix checks if the tensor is 2-dimensional (matrix).
+func (t *Tensor) IsMatrix() (isMatrix bool) {
+	isMatrix = t.Rank == 2
+	return
 }
 
-// AsVector はテンソルをVectorとして扱います（1次元の場合のみ）。
-func (t *Tensor) AsVector() (Vector, error) {
+// AsVector treats the tensor as a Vector (1-dimensional only).
+func (t *Tensor) AsVector() (result Vector, err error) {
 	if !t.IsVector() {
-		return Vector{}, fmt.Errorf("テンソル（形状: %v）をベクトルに変換できません", t.Shape)
+		err = fmt.Errorf("tensor with shape %v cannot be converted to vector", t.Shape)
+		return
 	}
-	
-	return Vector{
-		Data: append([]float64(nil), t.Data...), // データをコピー
+
+	result = Vector{
+		Data: append([]float64(nil), t.Data...), // Copy data
 		Dim:  t.Shape[0],
-	}, nil
+	}
+	return
 }
 
-// AsMatrix はテンソルをMatrixとして扱います（2次元の場合のみ）。
-func (t *Tensor) AsMatrix() (Matrix, error) {
+// AsMatrix treats the tensor as a Matrix (2-dimensional only).
+func (t *Tensor) AsMatrix() (result Matrix, err error) {
 	if !t.IsMatrix() {
-		return Matrix{}, fmt.Errorf("テンソル（形状: %v）を行列に変換できません", t.Shape)
+		err = fmt.Errorf("tensor with shape %v cannot be converted to matrix", t.Shape)
+		return
 	}
-	
-	return Matrix{
-		Data: append([]float64(nil), t.Data...), // データをコピー
+
+	result = Matrix{
+		Data: append([]float64(nil), t.Data...), // Copy data
 		Rows: t.Shape[0],
 		Cols: t.Shape[1],
-	}, nil
+	}
+	return
 }
 
-// Transpose は2次元テンソル（行列）の転置を行います。
-func (t *Tensor) Transpose() (*Tensor, error) {
+// Transpose performs transposition of a 2-dimensional tensor (matrix).
+func (t *Tensor) Transpose() (result *Tensor, err error) {
 	if !t.IsMatrix() {
-		return nil, fmt.Errorf("転置は2次元テンソルに対してのみ実行できます。現在の形状: %v", t.Shape)
+		err = fmt.Errorf("transpose can only be performed on 2-dimensional tensors. current shape: %v", t.Shape)
+		return
 	}
 
 	rows, cols := t.Shape[0], t.Shape[1]
-	result := NewTensor(cols, rows) // 行と列を入れ替え
+	result = NewTensor(cols, rows) // Swap rows and columns
 
 	for i := 0; i < rows; i++ {
 		for j := 0; j < cols; j++ {
 			val, _ := t.Get(i, j)
-			result.Set(val, j, i) // インデックスを入れ替え
+			result.Set(val, j, i) // Swap indices
 		}
 	}
 
-	return result, nil
+	return
 }
 
-// MatrixMultiply は2つの2次元テンソル（行列）の行列乗算を行います。
-func (t *Tensor) MatrixMultiply(other *Tensor) (*Tensor, error) {
+// MatrixMultiply performs matrix multiplication of two 2-dimensional tensors (matrices).
+func (t *Tensor) MatrixMultiply(other *Tensor) (result *Tensor, err error) {
 	if !t.IsMatrix() || !other.IsMatrix() {
-		return nil, fmt.Errorf("行列乗算は2次元テンソル同士でのみ実行できます")
+		err = fmt.Errorf("matrix multiplication can only be performed between 2-dimensional tensors")
+		return
 	}
 
 	if t.Shape[1] != other.Shape[0] {
-		return nil, fmt.Errorf("行列乗算のルールに違反します: 左の列数(%d) != 右の行数(%d)",
+		err = fmt.Errorf("matrix multiplication rule violation: left columns (%d) != right rows (%d)",
 			t.Shape[1], other.Shape[0])
+		return
 	}
 
 	resultRows, resultCols := t.Shape[0], other.Shape[1]
-	result := NewTensor(resultRows, resultCols)
+	result = NewTensor(resultRows, resultCols)
 
 	for i := 0; i < resultRows; i++ {
 		for j := 0; j < resultCols; j++ {
@@ -403,31 +432,33 @@ func (t *Tensor) MatrixMultiply(other *Tensor) (*Tensor, error) {
 		}
 	}
 
-	return result, nil
+	return
 }
 
-// VectorDot は1次元テンソル（ベクトル）同士の内積を計算します。
-func (t *Tensor) VectorDot(other *Tensor) (float64, error) {
+// VectorDot calculates the dot product of two 1-dimensional tensors (vectors).
+func (t *Tensor) VectorDot(other *Tensor) (dotProduct float64, err error) {
 	if !t.IsVector() || !other.IsVector() {
-		return 0, fmt.Errorf("内積は1次元テンソル（ベクトル）同士でのみ計算できます")
+		err = fmt.Errorf("dot product can only be calculated between 1-dimensional tensors (vectors)")
+		return
 	}
 
 	if t.Shape[0] != other.Shape[0] {
-		return 0, fmt.Errorf("ベクトルの次元数が異なります: %d と %d", t.Shape[0], other.Shape[0])
+		err = fmt.Errorf("vector dimensions differ: %d and %d", t.Shape[0], other.Shape[0])
+		return
 	}
 
-	var sum float64
 	for i := 0; i < t.Shape[0]; i++ {
-		sum += t.Data[i] * other.Data[i]
+		dotProduct += t.Data[i] * other.Data[i]
 	}
 
-	return sum, nil
+	return
 }
 
-// VectorLength は1次元テンソル（ベクトル）の長さ（ノルム）を計算します。
-func (t *Tensor) VectorLength() (float64, error) {
+// VectorLength calculates the length (norm) of a 1-dimensional tensor (vector).
+func (t *Tensor) VectorLength() (length float64, err error) {
 	if !t.IsVector() {
-		return 0, fmt.Errorf("長さの計算は1次元テンソル（ベクトル）に対してのみ実行できます")
+		err = fmt.Errorf("length calculation can only be performed on 1-dimensional tensors (vectors)")
+		return
 	}
 
 	var sum float64
@@ -435,28 +466,33 @@ func (t *Tensor) VectorLength() (float64, error) {
 		sum += val * val
 	}
 
-	return math.Sqrt(sum), nil
+	length = math.Sqrt(sum)
+	return
 }
 
-// VectorNormalize は1次元テンソル（ベクトル）を正規化します。
-func (t *Tensor) VectorNormalize() (*Tensor, error) {
+// VectorNormalize normalizes a 1-dimensional tensor (vector).
+func (t *Tensor) VectorNormalize() (result *Tensor, err error) {
 	if !t.IsVector() {
-		return nil, fmt.Errorf("正規化は1次元テンソル（ベクトル）に対してのみ実行できます")
+		err = fmt.Errorf("normalization can only be performed on 1-dimensional tensors (vectors)")
+		return
 	}
 
 	length, err := t.VectorLength()
 	if err != nil {
-		return nil, err
+		return
 	}
 
 	if length == 0 {
-		return nil, fmt.Errorf("ゼロベクトルは正規化できません")
+		err = fmt.Errorf("zero vector cannot be normalized")
+		return
 	}
 
-	return t.Scale(1.0 / length), nil
+	result = t.Scale(1.0 / length)
+	return
 }
 
-// String はテンソルの文字列表現を返します（デバッグ用）。
-func (t *Tensor) String() string {
-	return fmt.Sprintf("Tensor{Shape: %v, Rank: %d, Size: %d}", t.Shape, t.Rank, len(t.Data))
+// String returns the string representation of the tensor (for debugging).
+func (t *Tensor) String() (str string) {
+	str = fmt.Sprintf("Tensor{Shape: %v, Rank: %d, Size: %d}", t.Shape, t.Rank, len(t.Data))
+	return
 }

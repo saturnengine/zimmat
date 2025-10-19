@@ -77,15 +77,15 @@ func Init() {
 //
 //	version := zimmat.CheckVersion()
 //	fmt.Printf("Using zimmat version: %s\n", version)
-func CheckVersion() string {
-	return Version
+func CheckVersion() (version string) {
+	version = Version
+	return
 }
 
 /*
-他のファイル（例: linalg/vector.go）のコードは、
-以下のようにインポートすることで利用されます。
+Code from other files (e.g., linalg/vector.go) is used by importing as follows:
 
-// 例:
+// Example:
 // import "zimmat/linalg"
 // func New3DVector(x, y, z float64) linalg.Vector {
 //     return linalg.NewVector(x, y, z)

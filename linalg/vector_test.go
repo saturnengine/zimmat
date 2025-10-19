@@ -7,15 +7,15 @@ import (
 	"github.com/saturnengine/zimmat/linalg"
 )
 
-// floatの比較で許容される誤差 (epsilon)
+// Tolerance (epsilon) for float comparison
 const floatTolerance = 1e-9
 
-// almostEqual は浮動小数点数を許容誤差内で比較します。
+// almostEqual compares floating-point numbers within tolerance.
 func almostEqual(a, b float64) bool {
 	return math.Abs(a-b) < floatTolerance
 }
 
-// testVectorsEqual は2つのベクトルが等しいか（要素と次元が許容誤差内で一致するか）をチェックします。
+// testVectorsEqual checks if two vectors are equal (elements and dimensions match within tolerance).
 func testVectorsEqual(v1, v2 linalg.Vector) bool {
 	if v1.Dim != v2.Dim {
 		return false
@@ -28,97 +28,97 @@ func testVectorsEqual(v1, v2 linalg.Vector) bool {
 	return true
 }
 
-// TestNewVector はNewVector関数のテストです。
+// TestNewVector tests the NewVector function.
 func TestNewVector(t *testing.T) {
 	v := linalg.NewVector(1.0, 2.0, 3.0)
 	if v.Dim != 3 {
-		t.Errorf("次元数が期待値と異なります。期待値: 3, 実際: %d", v.Dim)
+		t.Errorf("dimension count differs from expected. expected: 3, actual: %d", v.Dim)
 	}
 	expected := []float64{1.0, 2.0, 3.0}
 	for i := range expected {
 		if !almostEqual(v.Data[i], expected[i]) {
-			t.Errorf("要素が期待値と異なります。期待値: %v, 実際: %v", expected, v.Data)
+			t.Errorf("element differs from expected. expected: %v, actual: %v", expected, v.Data)
 			break
 		}
 	}
 }
 
-// TestVectorAdd はベクトルの加算メソッドのテストです。
-func TestVectorAdd(t *testing.T) { // 名前を修正
+// TestVectorAdd tests the vector addition method.
+func TestVectorAdd(t *testing.T) {
 	v1 := linalg.NewVector(1, 2, 3)
 	v2 := linalg.NewVector(4, 5, 6)
 	expected := linalg.NewVector(5, 7, 9)
 
 	result, err := v1.Add(v2)
 	if err != nil {
-		t.Fatalf("Addでエラーが発生しました: %v", err)
+		t.Fatalf("error occurred in Add: %v", err)
 	}
 
 	if !testVectorsEqual(result, expected) {
-		t.Errorf("Addの結果が期待値と異なります。期待値: %v, 実際: %v", expected.Data, result.Data)
+		t.Errorf("Add result differs from expected. expected: %v, actual: %v", expected.Data, result.Data)
 	}
 
-	// 次元不一致のテスト
+	// Test dimension mismatch
 	v3 := linalg.NewVector(1, 2)
 	_, err = v1.Add(v3)
 	if err == nil {
-		t.Error("次元不一致の場合にエラーが返されませんでした")
+		t.Error("error was not returned for dimension mismatch")
 	}
 }
 
-// TestVectorDot は内積（ドット積）メソッドのテストです。
-func TestVectorDot(t *testing.T) { // 名前を修正
+// TestVectorDot tests the dot product method.
+func TestVectorDot(t *testing.T) {
 	v1 := linalg.NewVector(1, 0, 0)
 	v2 := linalg.NewVector(0, 1, 0)
 	v3 := linalg.NewVector(2, 3, 4)
 
-	// 垂直ベクトルの内積 (0)
+	// Dot product of perpendicular vectors (0)
 	dot1, _ := v1.Dot(v2)
 	if !almostEqual(dot1, 0.0) {
-		t.Errorf("内積の計算が誤っています。期待値: 0.0, 実際: %f", dot1)
+		t.Errorf("dot product calculation is incorrect. expected: 0.0, actual: %f", dot1)
 	}
 
-	// 一般的な内積 (29)
+	// General dot product (29)
 	dot2, _ := v3.Dot(v3)
 	if !almostEqual(dot2, 29.0) {
-		t.Errorf("内積の計算が誤っています。期待値: 29.0, 実際: %f", dot2)
+		t.Errorf("dot product calculation is incorrect. expected: 29.0, actual: %f", dot2)
 	}
 }
 
-// TestVectorLengthAndNormalize は長さと正規化メソッドのテストです。
-func TestVectorLengthAndNormalize(t *testing.T) { // 名前を修正
-	v := linalg.NewVector(3, 4) // 長さ5のベクトル
+// TestVectorLengthAndNormalize tests the length and normalization methods.
+func TestVectorLengthAndNormalize(t *testing.T) {
+	v := linalg.NewVector(3, 4) // Vector of length 5
 
-	// LengthSqのテスト
+	// Test LengthSq
 	if !almostEqual(v.LengthSq(), 25.0) {
-		t.Errorf("LengthSqの結果が誤っています。期待値: 25.0, 実際: %f", v.LengthSq())
+		t.Errorf("LengthSq result is incorrect. expected: 25.0, actual: %f", v.LengthSq())
 	}
 
-	// Lengthのテスト
+	// Test Length
 	if !almostEqual(v.Length(), 5.0) {
-		t.Errorf("Lengthの結果が誤っています。期待値: 5.0, 実際: %f", v.Length())
+		t.Errorf("Length result is incorrect. expected: 5.0, actual: %f", v.Length())
 	}
 
-	// Normalizeのテスト
+	// Test Normalize
 	normalized, err := v.Normalize()
 	if err != nil {
-		t.Fatalf("Normalizeでエラーが発生しました: %v", err)
+		t.Fatalf("error occurred in Normalize: %v", err)
 	}
 	expectedNormalized := linalg.NewVector(0.6, 0.8)
 
 	if !testVectorsEqual(normalized, expectedNormalized) {
-		t.Errorf("正規化の結果が期待値と異なります。期待値: %v, 実際: %v", expectedNormalized.Data, normalized.Data)
+		t.Errorf("normalization result differs from expected. expected: %v, actual: %v", expectedNormalized.Data, normalized.Data)
 	}
 
-	// 正規化されたベクトルの長さが1であることを確認
+	// Verify that normalized vector has length 1
 	if !almostEqual(normalized.Length(), 1.0) {
-		t.Errorf("正規化されたベクトルの長さが1ではありません: %f", normalized.Length())
+		t.Errorf("normalized vector length is not 1: %f", normalized.Length())
 	}
 
-	// ゼロベクトルの正規化テスト
+	// Test zero vector normalization
 	zeroV := linalg.NewVector(0, 0)
 	_, err = zeroV.Normalize()
 	if err == nil {
-		t.Error("ゼロベクトルの正規化でエラーが返されませんでした")
+		t.Error("error was not returned for zero vector normalization")
 	}
 }

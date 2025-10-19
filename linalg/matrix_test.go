@@ -6,7 +6,7 @@ import (
 	"github.com/saturnengine/zimmat/linalg"
 )
 
-// testMatricesEqual は2つの行列が等しいか（要素、行、列が許容誤差内で一致するか）をチェックします。
+// testMatricesEqual checks if two matrices are equal (elements, rows, columns match within tolerance).
 func testMatricesEqual(m1, m2 linalg.Matrix) bool {
 	if m1.Rows != m2.Rows || m1.Cols != m2.Cols {
 		return false
@@ -23,42 +23,42 @@ func testMatricesEqual(m1, m2 linalg.Matrix) bool {
 	return true
 }
 
-// TestNewMatrix は NewMatrix 関数のテストです。
+// TestNewMatrix tests the NewMatrix function.
 func TestNewMatrix(t *testing.T) {
-	// 正常な初期化 (2x3)
+	// Normal initialization (2x3)
 	data := [][]float64{
 		{1.0, 2.0, 3.0},
 		{4.0, 5.0, 6.0},
 	}
 	m, err := linalg.NewMatrix(data)
 	if err != nil {
-		t.Fatalf("NewMatrixでエラーが発生しました: %v", err)
+		t.Fatalf("error occurred in NewMatrix: %v", err)
 	}
 	if m.Rows != 2 || m.Cols != 3 {
-		t.Errorf("サイズが期待値と異なります。期待値: 2x3, 実際: %dx%d", m.Rows, m.Cols)
+		t.Errorf("size differs from expected. expected: 2x3, actual: %dx%d", m.Rows, m.Cols)
 	}
 }
 
-// TestMatrixGetAndSet は Get と Set メソッドのテストです。
+// TestMatrixGetAndSet tests the Get and Set methods.
 func TestMatrixGetAndSet(t *testing.T) {
 	data := [][]float64{{1.1, 2.2}, {3.3, 4.4}}
 	m, _ := linalg.NewMatrix(data)
 
-	// Getのテスト
+	// Test Get
 	val, _ := m.Get(1, 0)
 	if !almostEqual(val, 3.3) {
-		t.Errorf("Getの結果が期待値と異なります。期待値: 3.3, 実際: %f", val)
+		t.Errorf("Get result differs from expected. expected: 3.3, actual: %f", val)
 	}
 
-	// Setのテスト
+	// Test Set
 	m.Set(0, 1, 9.9)
 	val, _ = m.Get(0, 1)
 	if !almostEqual(val, 9.9) {
-		t.Errorf("Setの結果が反映されていません。期待値: 9.9, 実際: %f", val)
+		t.Errorf("Set result is not reflected. expected: 9.9, actual: %f", val)
 	}
 }
 
-// TestMatrixAdd は行列の加算メソッドのテストです。
+// TestMatrixAdd tests the matrix addition method.
 func TestMatrixAdd(t *testing.T) {
 	m1, _ := linalg.NewMatrix([][]float64{{1, 2}, {3, 4}})
 	m2, _ := linalg.NewMatrix([][]float64{{5, 6}, {7, 8}})
@@ -66,11 +66,11 @@ func TestMatrixAdd(t *testing.T) {
 
 	result, _ := m1.Add(m2)
 	if !testMatricesEqual(result, expected) {
-		t.Errorf("Addの結果が期待値と異なります。期待値: %v\n実際: %v", expected.Data, result.Data)
+		t.Errorf("Add result differs from expected. expected: %v\nactual: %v", expected.Data, result.Data)
 	}
 }
 
-// TestMatrixMultiply は行列の乗算メソッドのテストです。
+// TestMatrixMultiply tests the matrix multiplication method.
 func TestMatrixMultiply(t *testing.T) {
 	// A (2x3) * B (3x2) = C (2x2)
 	m_A, _ := linalg.NewMatrix([][]float64{{1, 2, 3}, {4, 5, 6}})
@@ -79,114 +79,114 @@ func TestMatrixMultiply(t *testing.T) {
 
 	result, _ := m_A.Multiply(m_B)
 	if !testMatricesEqual(result, expected) {
-		t.Errorf("Multiplyの結果が期待値と異なります。\n期待値: %v\n実際: %v", expected.Data, result.Data)
+		t.Errorf("Multiply result differs from expected.\nexpected: %v\nactual: %v", expected.Data, result.Data)
 	}
 }
 
-// TestMatrixTranspose は転置行列メソッドのテストです。
+// TestMatrixTranspose tests the matrix transpose method.
 func TestMatrixTranspose(t *testing.T) {
-	// 2x3 行列
+	// 2x3 matrix
 	m, _ := linalg.NewMatrix([][]float64{{1, 2, 3}, {4, 5, 6}})
-	// 期待される 3x2 行列
+	// Expected 3x2 matrix
 	expected, _ := linalg.NewMatrix([][]float64{{1, 4}, {2, 5}, {3, 6}})
 
 	result := m.Transpose()
 
 	if !testMatricesEqual(result, expected) {
-		t.Errorf("Transposeの結果が期待値と異なります。\n期待値: %v\n実際: %v", expected.Data, result.Data)
+		t.Errorf("Transpose result differs from expected.\nexpected: %v\nactual: %v", expected.Data, result.Data)
 	}
 	if result.Rows != 3 || result.Cols != 2 {
-		t.Errorf("転置後のサイズが誤っています。期待値: 3x2, 実際: %dx%d", result.Rows, result.Cols)
+		t.Errorf("transposed size is incorrect. expected: 3x2, actual: %dx%d", result.Rows, result.Cols)
 	}
 }
 
-// TestMatrixDeterminant は行列式メソッドのテストです。
+// TestMatrixDeterminant tests the matrix determinant method.
 func TestMatrixDeterminant(t *testing.T) {
 	// 2x2: det(A) = 4*6 - 7*2 = 10
 	m2x2, _ := linalg.NewMatrix([][]float64{{4, 7}, {2, 6}})
 	det2x2, _ := m2x2.Determinant()
 	if !almostEqual(det2x2, 10.0) {
-		t.Errorf("2x2 行列式の結果が誤っています。期待値: 10.0, 実際: %f", det2x2)
+		t.Errorf("2x2 determinant result is incorrect. expected: 10.0, actual: %f", det2x2)
 	}
 
 	// 3x3: det(A) = 27
 	m3x3, _ := linalg.NewMatrix([][]float64{{1, 2, 3}, {4, 5, 6}, {7, 8, 0}})
 	det3x3, _ := m3x3.Determinant()
 	if !almostEqual(det3x3, 27.0) {
-		t.Errorf("3x3 行列式の結果が誤っています。期待値: 27.0, 実際: %f", det3x3)
+		t.Errorf("3x3 determinant result is incorrect. expected: 27.0, actual: %f", det3x3)
 	}
 
-	// 非正方行列のテスト
+	// Test non-square matrix
 	mNonSquare, _ := linalg.NewMatrix([][]float64{{1, 2, 3}, {4, 5, 6}})
 	_, err := mNonSquare.Determinant()
 	if err == nil {
-		t.Error("非正方行列に対してエラーが返されませんでした")
+		t.Error("error was not returned for non-square matrix")
 	}
 }
 
-// TestMatrixInverse は逆行列計算メソッドのテストです。
+// TestMatrixInverse tests the matrix inverse calculation method.
 func TestMatrixInverse(t *testing.T) {
-	// 正常な 2x2 行列 (det=10)
+	// Normal 2x2 matrix (det=10)
 	m2x2, _ := linalg.NewMatrix([][]float64{{4, 7}, {2, 6}})
 	expected2x2, _ := linalg.NewMatrix([][]float64{{0.6, -0.7}, {-0.2, 0.4}})
 
 	inv2x2, _ := m2x2.Inverse()
 	if !testMatricesEqual(inv2x2, expected2x2) {
-		t.Errorf("2x2 Inverseの結果が期待値と異なります。\n期待値: %v\n実際: %v", expected2x2.Data, inv2x2.Data)
+		t.Errorf("2x2 Inverse result differs from expected.\nexpected: %v\nactual: %v", expected2x2.Data, inv2x2.Data)
 	}
 
-	// 検算: A * A_inv が単位行列 I になるか確認
+	// Verification: check if A * A_inv equals identity matrix I
 	product, _ := m2x2.Multiply(inv2x2)
 	identity2x2, _ := linalg.NewMatrix([][]float64{{1.0, 0.0}, {0.0, 1.0}})
 	if !testMatricesEqual(product, identity2x2) {
-		t.Errorf("2x2 Inverseの検算 (A * A_inv) が失敗しました。結果: %v", product.Data)
+		t.Errorf("2x2 Inverse verification (A * A_inv) failed. result: %v", product.Data)
 	}
 
-	// 特異行列（逆行列が存在しない）のテスト
+	// Test singular matrix (inverse does not exist)
 	singularM, _ := linalg.NewMatrix([][]float64{{2, 4}, {1, 2}})
 	_, err := singularM.Inverse()
 	if err == nil {
-		t.Error("特異行列に対してエラーが返されませんでした")
+		t.Error("error was not returned for singular matrix")
 	}
 }
 
-// TestMatrixSpecialTypes は対角、対称、三角行列の判定メソッドのテストです。
+// TestMatrixSpecialTypes tests the diagonal, symmetric, and triangular matrix detection methods.
 func TestMatrixSpecialTypes(t *testing.T) {
-	// 1. 対角行列
+	// 1. Diagonal matrix
 	diagM, _ := linalg.NewMatrix([][]float64{{1, 0}, {0, 2}})
 	nonDiagM, _ := linalg.NewMatrix([][]float64{{1, 1}, {0, 2}})
 	if !diagM.IsDiagonal() {
-		t.Error("IsDiagonal: 対角行列を正しく判定できませんでした")
+		t.Error("IsDiagonal: could not correctly identify diagonal matrix")
 	}
 	if nonDiagM.IsDiagonal() {
-		t.Error("IsDiagonal: 非対角行列を誤って判定しました")
+		t.Error("IsDiagonal: incorrectly identified non-diagonal matrix")
 	}
 
-	// 2. 対称行列
+	// 2. Symmetric matrix
 	symM, _ := linalg.NewMatrix([][]float64{{1, 2}, {2, 3}})
 	nonSymM, _ := linalg.NewMatrix([][]float64{{1, 2}, {3, 4}})
 	if !symM.IsSymmetric() {
-		t.Error("IsSymmetric: 対称行列を正しく判定できませんでした")
+		t.Error("IsSymmetric: could not correctly identify symmetric matrix")
 	}
 	if nonSymM.IsSymmetric() {
-		t.Error("IsSymmetric: 非対称行列を誤って判定しました")
+		t.Error("IsSymmetric: incorrectly identified non-symmetric matrix")
 	}
 
-	// 3. 上三角行列
+	// 3. Upper triangular matrix
 	upperM, _ := linalg.NewMatrix([][]float64{{1, 2}, {0, 3}})
 	if !upperM.IsUpperTriangular() {
-		t.Errorf("IsUpperTriangular: 上三角行列を正しく判定できませんでした")
+		t.Errorf("IsUpperTriangular: could not correctly identify upper triangular matrix")
 	}
 	if upperM.IsLowerTriangular() {
-		t.Errorf("IsLowerTriangular: 上三角行列を誤って判定しました")
+		t.Errorf("IsLowerTriangular: incorrectly identified upper triangular matrix")
 	}
 
-	// 4. 下三角行列
+	// 4. Lower triangular matrix
 	lowerM, _ := linalg.NewMatrix([][]float64{{1, 0}, {2, 3}})
 	if !lowerM.IsLowerTriangular() {
-		t.Errorf("IsLowerTriangular: 下三角行列を正しく判定できませんでした")
+		t.Errorf("IsLowerTriangular: could not correctly identify lower triangular matrix")
 	}
 	if lowerM.IsUpperTriangular() {
-		t.Errorf("IsUpperTriangular: 下三角行列を誤って判定しました")
+		t.Errorf("IsUpperTriangular: incorrectly identified lower triangular matrix")
 	}
 }

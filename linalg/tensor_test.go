@@ -2,319 +2,320 @@ package linalg_test
 
 import (
 	"testing"
+
 	"github.com/saturnengine/zimmat/linalg"
 )
 
-// TestNewTensor はNewTensor関数のテストです。
+// TestNewTensor tests the NewTensor function.
 func TestNewTensor(t *testing.T) {
-	// 3次元テンソルの作成 (2x3x4)
+	// Create 3-dimensional tensor (2x3x4)
 	tensor := linalg.NewTensor(2, 3, 4)
-	
+
 	if tensor.Rank != 3 {
-		t.Errorf("テンソルの階数が期待値と異なります。期待値: 3, 実際: %d", tensor.Rank)
+		t.Errorf("tensor rank differs from expected. expected: 3, actual: %d", tensor.Rank)
 	}
-	
+
 	expectedShape := []int{2, 3, 4}
 	for i, dim := range tensor.Shape {
 		if dim != expectedShape[i] {
-			t.Errorf("テンソルの形状[%d]が期待値と異なります。期待値: %d, 実際: %d", i, expectedShape[i], dim)
+			t.Errorf("tensor shape[%d] differs from expected. expected: %d, actual: %d", i, expectedShape[i], dim)
 		}
 	}
-	
+
 	if tensor.Size() != 24 {
-		t.Errorf("テンソルのサイズが期待値と異なります。期待値: 24, 実際: %d", tensor.Size())
+		t.Errorf("tensor size differs from expected. expected: 24, actual: %d", tensor.Size())
 	}
 }
 
-// TestNewTensorWithData はNewTensorWithData関数のテストです。
+// TestNewTensorWithData tests the NewTensorWithData function.
 func TestNewTensorWithData(t *testing.T) {
 	data := []float64{1, 2, 3, 4, 5, 6}
 	tensor, err := linalg.NewTensorWithData(data, 2, 3)
-	
+
 	if err != nil {
-		t.Fatalf("NewTensorWithDataでエラーが発生しました: %v", err)
+		t.Fatalf("error occurred in NewTensorWithData: %v", err)
 	}
-	
+
 	if tensor.Rank != 2 {
-		t.Errorf("テンソルの階数が期待値と異なります。期待値: 2, 実際: %d", tensor.Rank)
+		t.Errorf("tensor rank differs from expected. expected: 2, actual: %d", tensor.Rank)
 	}
-	
+
 	val, _ := tensor.Get(1, 2)
 	if !almostEqual(val, 6.0) {
-		t.Errorf("テンソルの要素[1,2]が期待値と異なります。期待値: 6.0, 実際: %f", val)
+		t.Errorf("tensor element[1,2] differs from expected. expected: 6.0, actual: %f", val)
 	}
 }
 
-// TestTensorGetSet はGet/Setメソッドのテストです。
+// TestTensorGetSet tests the Get/Set methods.
 func TestTensorGetSet(t *testing.T) {
 	tensor := linalg.NewTensor(3, 3)
-	
-	// Setのテスト
+
+	// Test Set
 	err := tensor.Set(42.0, 1, 2)
 	if err != nil {
-		t.Fatalf("Set操作でエラーが発生しました: %v", err)
+		t.Fatalf("error occurred in Set operation: %v", err)
 	}
-	
-	// Getのテスト
+
+	// Test Get
 	val, err := tensor.Get(1, 2)
 	if err != nil {
-		t.Fatalf("Get操作でエラーが発生しました: %v", err)
+		t.Fatalf("error occurred in Get operation: %v", err)
 	}
-	
+
 	if !almostEqual(val, 42.0) {
-		t.Errorf("取得した値が期待値と異なります。期待値: 42.0, 実際: %f", val)
+		t.Errorf("retrieved value differs from expected. expected: 42.0, actual: %f", val)
 	}
-	
-	// 範囲外アクセスのテスト
+
+	// Test out-of-bounds access
 	_, err = tensor.Get(3, 0)
 	if err == nil {
-		t.Error("範囲外アクセスでエラーが返されませんでした")
+		t.Error("error was not returned for out-of-bounds access")
 	}
 }
 
-// TestTensorAdd はAdd演算のテストです。
+// TestTensorAdd tests the Add operation.
 func TestTensorAdd(t *testing.T) {
 	data1 := []float64{1, 2, 3, 4}
 	data2 := []float64{5, 6, 7, 8}
-	
+
 	tensor1, _ := linalg.NewTensorWithData(data1, 2, 2)
 	tensor2, _ := linalg.NewTensorWithData(data2, 2, 2)
-	
+
 	result, err := tensor1.Add(tensor2)
 	if err != nil {
-		t.Fatalf("Add操作でエラーが発生しました: %v", err)
+		t.Fatalf("error occurred in Add operation: %v", err)
 	}
-	
+
 	expected := []float64{6, 8, 10, 12}
 	for i, val := range result.Data {
 		if !almostEqual(val, expected[i]) {
-			t.Errorf("加算結果[%d]が期待値と異なります。期待値: %f, 実際: %f", i, expected[i], val)
+			t.Errorf("addition result[%d] differs from expected. expected: %f, actual: %f", i, expected[i], val)
 		}
 	}
 }
 
-// TestTensorSubtract はSubtract演算のテストです。
+// TestTensorSubtract tests the Subtract operation.
 func TestTensorSubtract(t *testing.T) {
 	data1 := []float64{5, 6, 7, 8}
 	data2 := []float64{1, 2, 3, 4}
-	
+
 	tensor1, _ := linalg.NewTensorWithData(data1, 2, 2)
 	tensor2, _ := linalg.NewTensorWithData(data2, 2, 2)
-	
+
 	result, err := tensor1.Subtract(tensor2)
 	if err != nil {
-		t.Fatalf("Subtract操作でエラーが発生しました: %v", err)
+		t.Fatalf("error occurred in Subtract operation: %v", err)
 	}
-	
+
 	expected := []float64{4, 4, 4, 4}
 	for i, val := range result.Data {
 		if !almostEqual(val, expected[i]) {
-			t.Errorf("減算結果[%d]が期待値と異なります。期待値: %f, 実際: %f", i, expected[i], val)
+			t.Errorf("subtraction result[%d] differs from expected. expected: %f, actual: %f", i, expected[i], val)
 		}
 	}
 }
 
-// TestTensorScale はScale演算のテストです。
+// TestTensorScale tests the Scale operation.
 func TestTensorScale(t *testing.T) {
 	data := []float64{1, 2, 3, 4}
 	tensor, _ := linalg.NewTensorWithData(data, 2, 2)
-	
+
 	result := tensor.Scale(2.0)
-	
+
 	expected := []float64{2, 4, 6, 8}
 	for i, val := range result.Data {
 		if !almostEqual(val, expected[i]) {
-			t.Errorf("スケール結果[%d]が期待値と異なります。期待値: %f, 実際: %f", i, expected[i], val)
+			t.Errorf("scale result[%d] differs from expected. expected: %f, actual: %f", i, expected[i], val)
 		}
 	}
 }
 
-// TestTensorReshape はReshape操作のテストです。
+// TestTensorReshape tests the Reshape operation.
 func TestTensorReshape(t *testing.T) {
 	data := []float64{1, 2, 3, 4, 5, 6}
 	tensor, _ := linalg.NewTensorWithData(data, 2, 3)
-	
+
 	reshaped, err := tensor.Reshape(3, 2)
 	if err != nil {
-		t.Fatalf("Reshape操作でエラーが発生しました: %v", err)
+		t.Fatalf("error occurred in Reshape operation: %v", err)
 	}
-	
+
 	if reshaped.Rank != 2 {
-		t.Errorf("リシェイプ後の階数が期待値と異なります。期待値: 2, 実際: %d", reshaped.Rank)
+		t.Errorf("reshaped rank differs from expected. expected: 2, actual: %d", reshaped.Rank)
 	}
-	
+
 	expectedShape := []int{3, 2}
 	for i, dim := range reshaped.Shape {
 		if dim != expectedShape[i] {
-			t.Errorf("リシェイプ後の形状[%d]が期待値と異なります。期待値: %d, 実際: %d", i, expectedShape[i], dim)
+			t.Errorf("reshaped shape[%d] differs from expected. expected: %d, actual: %d", i, expectedShape[i], dim)
 		}
 	}
-	
-	// データが保持されているかチェック
+
+	// Check if data is preserved
 	val, _ := reshaped.Get(1, 1)
 	if !almostEqual(val, 4.0) {
-		t.Errorf("リシェイプ後の要素[1,1]が期待値と異なります。期待値: 4.0, 実際: %f", val)
+		t.Errorf("reshaped element[1,1] differs from expected. expected: 4.0, actual: %f", val)
 	}
 }
 
-// TestTensorTranspose は転置操作のテストです。
+// TestTensorTranspose tests the transpose operation.
 func TestTensorTranspose(t *testing.T) {
 	data := []float64{1, 2, 3, 4, 5, 6}
-	tensor, _ := linalg.NewTensorWithData(data, 2, 3) // 2x3行列
-	
+	tensor, _ := linalg.NewTensorWithData(data, 2, 3) // 2x3 matrix
+
 	transposed, err := tensor.Transpose()
 	if err != nil {
-		t.Fatalf("Transpose操作でエラーが発生しました: %v", err)
+		t.Fatalf("error occurred in Transpose operation: %v", err)
 	}
-	
+
 	if transposed.Rank != 2 {
-		t.Errorf("転置後の階数が期待値と異なります。期待値: 2, 実際: %d", transposed.Rank)
+		t.Errorf("transposed rank differs from expected. expected: 2, actual: %d", transposed.Rank)
 	}
-	
+
 	expectedShape := []int{3, 2}
 	for i, dim := range transposed.Shape {
 		if dim != expectedShape[i] {
-			t.Errorf("転置後の形状[%d]が期待値と異なります。期待値: %d, 実際: %d", i, expectedShape[i], dim)
+			t.Errorf("transposed shape[%d] differs from expected. expected: %d, actual: %d", i, expectedShape[i], dim)
 		}
 	}
-	
-	// 転置が正しく行われているかチェック
+
+	// Check if transpose is performed correctly
 	val, _ := transposed.Get(1, 0)
 	originalVal, _ := tensor.Get(0, 1)
 	if !almostEqual(val, originalVal) {
-		t.Errorf("転置後の要素[1,0]が期待値と異なります。期待値: %f, 実際: %f", originalVal, val)
+		t.Errorf("transposed element[1,0] differs from expected. expected: %f, actual: %f", originalVal, val)
 	}
 }
 
-// TestTensorMatrixMultiply は行列乗算のテストです。
+// TestTensorMatrixMultiply tests matrix multiplication.
 func TestTensorMatrixMultiply(t *testing.T) {
 	// A (2x3) * B (3x2) = C (2x2)
 	dataA := []float64{1, 2, 3, 4, 5, 6}
 	dataB := []float64{7, 8, 9, 10, 11, 12}
-	
+
 	tensorA, _ := linalg.NewTensorWithData(dataA, 2, 3)
 	tensorB, _ := linalg.NewTensorWithData(dataB, 3, 2)
-	
+
 	result, err := tensorA.MatrixMultiply(tensorB)
 	if err != nil {
-		t.Fatalf("MatrixMultiply操作でエラーが発生しました: %v", err)
+		t.Fatalf("error occurred in MatrixMultiply operation: %v", err)
 	}
-	
-	// 期待される結果: [[58, 64], [139, 154]]
+
+	// Expected result: [[58, 64], [139, 154]]
 	expected := []float64{58, 64, 139, 154}
 	for i, val := range result.Data {
 		if !almostEqual(val, expected[i]) {
-			t.Errorf("行列乗算結果[%d]が期待値と異なります。期待値: %f, 実際: %f", i, expected[i], val)
+			t.Errorf("matrix multiplication result[%d] differs from expected. expected: %f, actual: %f", i, expected[i], val)
 		}
 	}
 }
 
-// TestTensorVectorDot はベクトル内積のテストです。
+// TestTensorVectorDot tests vector dot product.
 func TestTensorVectorDot(t *testing.T) {
 	data1 := []float64{1, 2, 3}
 	data2 := []float64{4, 5, 6}
-	
+
 	tensor1, _ := linalg.NewTensorWithData(data1, 3)
 	tensor2, _ := linalg.NewTensorWithData(data2, 3)
-	
+
 	dot, err := tensor1.VectorDot(tensor2)
 	if err != nil {
-		t.Fatalf("VectorDot操作でエラーが発生しました: %v", err)
+		t.Fatalf("error occurred in VectorDot operation: %v", err)
 	}
-	
+
 	expected := 32.0 // 1*4 + 2*5 + 3*6 = 4 + 10 + 18 = 32
 	if !almostEqual(dot, expected) {
-		t.Errorf("内積の結果が期待値と異なります。期待値: %f, 実際: %f", expected, dot)
+		t.Errorf("dot product result differs from expected. expected: %f, actual: %f", expected, dot)
 	}
 }
 
-// TestTensorVectorLength はベクトル長のテストです。
+// TestTensorVectorLength tests vector length calculation.
 func TestTensorVectorLength(t *testing.T) {
-	data := []float64{3, 4} // 長さ5のベクトル
+	data := []float64{3, 4} // Vector of length 5
 	tensor, _ := linalg.NewTensorWithData(data, 2)
-	
+
 	length, err := tensor.VectorLength()
 	if err != nil {
-		t.Fatalf("VectorLength操作でエラーが発生しました: %v", err)
+		t.Fatalf("error occurred in VectorLength operation: %v", err)
 	}
-	
+
 	expected := 5.0
 	if !almostEqual(length, expected) {
-		t.Errorf("ベクトル長が期待値と異なります。期待値: %f, 実際: %f", expected, length)
+		t.Errorf("vector length differs from expected. expected: %f, actual: %f", expected, length)
 	}
 }
 
-// TestTensorVectorNormalize はベクトル正規化のテストです。
+// TestTensorVectorNormalize tests vector normalization.
 func TestTensorVectorNormalize(t *testing.T) {
-	data := []float64{3, 4} // 長さ5のベクトル
+	data := []float64{3, 4} // Vector of length 5
 	tensor, _ := linalg.NewTensorWithData(data, 2)
-	
+
 	normalized, err := tensor.VectorNormalize()
 	if err != nil {
-		t.Fatalf("VectorNormalize操作でエラーが発生しました: %v", err)
+		t.Fatalf("error occurred in VectorNormalize operation: %v", err)
 	}
-	
-	// 正規化されたベクトルの長さが1であることを確認
+
+	// Verify that normalized vector has length 1
 	length, _ := normalized.VectorLength()
 	if !almostEqual(length, 1.0) {
-		t.Errorf("正規化されたベクトルの長さが1ではありません: %f", length)
+		t.Errorf("normalized vector length is not 1: %f", length)
 	}
-	
-	// 正規化されたベクトルの要素が正しいかチェック
+
+	// Check if normalized vector elements are correct
 	val0, _ := normalized.Get(0)
 	val1, _ := normalized.Get(1)
 	if !almostEqual(val0, 0.6) || !almostEqual(val1, 0.8) {
-		t.Errorf("正規化されたベクトルの要素が期待値と異なります。期待値: [0.6, 0.8], 実際: [%f, %f]", val0, val1)
+		t.Errorf("normalized vector elements differ from expected. expected: [0.6, 0.8], actual: [%f, %f]", val0, val1)
 	}
 }
 
-// TestTensorAsVectorMatrix はAsVector/AsMatrixメソッドのテストです。
+// TestTensorAsVectorMatrix tests the AsVector/AsMatrix methods.
 func TestTensorAsVectorMatrix(t *testing.T) {
-	// 1次元テンソルからベクトルへの変換
+	// Convert 1-dimensional tensor to vector
 	data1d := []float64{1, 2, 3}
 	tensor1d, _ := linalg.NewTensorWithData(data1d, 3)
-	
+
 	vector, err := tensor1d.AsVector()
 	if err != nil {
-		t.Fatalf("AsVector変換でエラーが発生しました: %v", err)
+		t.Fatalf("error occurred in AsVector conversion: %v", err)
 	}
-	
+
 	if vector.Dim != 3 {
-		t.Errorf("変換されたベクトルの次元数が期待値と異なります。期待値: 3, 実際: %d", vector.Dim)
+		t.Errorf("converted vector dimension differs from expected. expected: 3, actual: %d", vector.Dim)
 	}
-	
-	// 2次元テンソルから行列への変換
+
+	// Convert 2-dimensional tensor to matrix
 	data2d := []float64{1, 2, 3, 4}
 	tensor2d, _ := linalg.NewTensorWithData(data2d, 2, 2)
-	
+
 	matrix, err := tensor2d.AsMatrix()
 	if err != nil {
-		t.Fatalf("AsMatrix変換でエラーが発生しました: %v", err)
+		t.Fatalf("error occurred in AsMatrix conversion: %v", err)
 	}
-	
+
 	if matrix.Rows != 2 || matrix.Cols != 2 {
-		t.Errorf("変換された行列のサイズが期待値と異なります。期待値: 2x2, 実際: %dx%d", matrix.Rows, matrix.Cols)
+		t.Errorf("converted matrix size differs from expected. expected: 2x2, actual: %dx%d", matrix.Rows, matrix.Cols)
 	}
 }
 
-// TestTensorClone はCloneメソッドのテストです。
+// TestTensorClone tests the Clone method.
 func TestTensorClone(t *testing.T) {
 	data := []float64{1, 2, 3, 4}
 	original, _ := linalg.NewTensorWithData(data, 2, 2)
-	
+
 	cloned := original.Clone()
-	
-	// クローンが同じデータを持つかチェック
+
+	// Check if clone has same data
 	for i := range original.Data {
 		if !almostEqual(original.Data[i], cloned.Data[i]) {
-			t.Errorf("クローンのデータ[%d]が異なります。期待値: %f, 実際: %f", i, original.Data[i], cloned.Data[i])
+			t.Errorf("cloned data[%d] differs. expected: %f, actual: %f", i, original.Data[i], cloned.Data[i])
 		}
 	}
-	
-	// 独立性を確認（一方を変更しても他方が影響されない）
+
+	// Verify independence (modifying one should not affect the other)
 	original.Set(99.0, 0, 0)
 	clonedVal, _ := cloned.Get(0, 0)
 	if almostEqual(clonedVal, 99.0) {
-		t.Error("クローンが独立していません。オリジナルの変更がクローンに影響しています")
+		t.Error("clone is not independent. original modification affects clone")
 	}
 }
