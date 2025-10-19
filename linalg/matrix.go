@@ -447,11 +447,12 @@ func (m Matrix) Inverse() (result Matrix, err error) {
 	return
 }
 
-// IsDiagonal は行列が対角行列（非対角要素が全てゼロ）であるかをチェックします。
-func (m Matrix) IsDiagonal() bool {
+// IsDiagonal checks if the matrix is a diagonal matrix (all non-diagonal elements are zero).
+func (m Matrix) IsDiagonal() (isDiagonal bool) {
 	if m.Rows != m.Cols {
-		return false
-	} // 対角行列は正方行列である必要がある
+		isDiagonal = false
+		return
+	} // Diagonal matrices must be square
 
 	const epsilon = 1e-9
 	for i := 0; i < m.Rows; i++ {
@@ -459,67 +460,78 @@ func (m Matrix) IsDiagonal() bool {
 			if i != j {
 				val, _ := m.Get(i, j)
 				if math.Abs(val) > epsilon {
-					return false
+					isDiagonal = false
+					return
 				}
 			}
 		}
 	}
-	return true
+	isDiagonal = true
+	return
 }
 
-// IsSymmetric は行列が対称行列（A = A^T）であるかをチェックします。
-func (m Matrix) IsSymmetric() bool {
+// IsSymmetric checks if the matrix is symmetric (A = A^T).
+func (m Matrix) IsSymmetric() (isSymmetric bool) {
 	if m.Rows != m.Cols {
-		return false
+		isSymmetric = false
+		return
 	}
 
 	const epsilon = 1e-9
 	for i := 0; i < m.Rows; i++ {
-		for j := i + 1; j < m.Cols; j++ { // 対角要素より上の部分のみチェック
+		for j := i + 1; j < m.Cols; j++ { // Check only upper part above diagonal
 			val_ij, _ := m.Get(i, j)
 			val_ji, _ := m.Get(j, i)
 			if math.Abs(val_ij-val_ji) > epsilon {
-				return false
+				isSymmetric = false
+				return
 			}
 		}
 	}
-	return true
+	isSymmetric = true
+	return
 }
 
-// IsUpperTriangular は行列が上三角行列（対角要素より下の要素が全てゼロ）であるかをチェックします。
-func (m Matrix) IsUpperTriangular() bool {
+// IsUpperTriangular checks if the matrix is upper triangular (all elements below diagonal are zero).
+func (m Matrix) IsUpperTriangular() (isUpperTriangular bool) {
 	if m.Rows != m.Cols {
-		return false
+		isUpperTriangular = false
+		return
 	}
 
 	const epsilon = 1e-9
-	for i := 1; i < m.Rows; i++ { // 1行目から
-		for j := 0; j < i; j++ { // 対角要素より左下の要素をチェック
+	for i := 1; i < m.Rows; i++ { // From row 1
+		for j := 0; j < i; j++ { // Check elements below diagonal
 			val, _ := m.Get(i, j)
 			if math.Abs(val) > epsilon {
-				return false
+				isUpperTriangular = false
+				return
 			}
 		}
 	}
-	return true
+	isUpperTriangular = true
+	return
 }
 
-// IsLowerTriangular は行列が下三角行列（対角要素より上の要素が全てゼロ）であるかをチェックします。
-func (m Matrix) IsLowerTriangular() bool {
+// IsLowerTriangular checks if the matrix is lower triangular (all elements above diagonal are zero).
+func (m Matrix) IsLowerTriangular() (isLowerTriangular bool) {
 	if m.Rows != m.Cols {
-		return false
+		isLowerTriangular = false
+		return
 	}
 
 	const epsilon = 1e-9
 	for i := 0; i < m.Rows; i++ {
-		for j := i + 1; j < m.Cols; j++ { // 対角要素より右上の要素をチェック
+		for j := i + 1; j < m.Cols; j++ { // Check elements above diagonal
 			val, _ := m.Get(i, j)
 			if math.Abs(val) > epsilon {
-				return false
+				isLowerTriangular = false
+				return
 			}
 		}
 	}
-	return true
+	isLowerTriangular = true
+	return
 }
 
 /*
