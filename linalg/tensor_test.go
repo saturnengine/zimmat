@@ -319,3 +319,388 @@ func TestTensorClone(t *testing.T) {
 		t.Error("clone is not independent. original modification affects clone")
 	}
 }
+
+// TestNewTensorEmptyShape tests NewTensor with empty shape.
+func TestNewTensorEmptyShape(t *testing.T) {
+	tensor := linalg.NewTensor()
+
+	if tensor.Rank != 0 {
+		t.Errorf("empty tensor rank should be 0. actual: %d", tensor.Rank)
+	}
+
+	if len(tensor.Shape) != 0 {
+		t.Errorf("empty tensor shape should be empty. actual: %v", tensor.Shape)
+	}
+
+	if len(tensor.Data) != 0 {
+		t.Errorf("empty tensor data should be empty. actual length: %d", len(tensor.Data))
+	}
+}
+
+// TestNewTensorInvalidShape tests NewTensor with invalid dimensions.
+func TestNewTensorInvalidShape(t *testing.T) {
+	// Test with zero dimension
+	tensor := linalg.NewTensor(2, 0, 3)
+	if tensor.Rank != 0 {
+		t.Error("tensor with zero dimension should return empty tensor")
+	}
+
+	// Test with negative dimension
+	tensor = linalg.NewTensor(2, -1, 3)
+	if tensor.Rank != 0 {
+		t.Error("tensor with negative dimension should return empty tensor")
+	}
+}
+
+// TestNewTensorWithDataErrors tests error cases in NewTensorWithData.
+func TestNewTensorWithDataErrors(t *testing.T) {
+	// Test with empty shape
+	data := []float64{1, 2, 3}
+	tensor, err := linalg.NewTensorWithData(data)
+	if err != nil {
+		t.Errorf("NewTensorWithData with empty shape should not error. actual error: %v", err)
+	}
+	if tensor.Rank != 0 {
+		t.Error("tensor with empty shape should have rank 0")
+	}
+
+	// Test with negative dimension
+	_, err = linalg.NewTensorWithData(data, 2, -1)
+	if err == nil {
+		t.Error("error was not returned for negative dimension")
+	}
+
+	// Test with zero dimension
+	_, err = linalg.NewTensorWithData(data, 2, 0)
+	if err == nil {
+		t.Error("error was not returned for zero dimension")
+	}
+
+	// Test with mismatched data size
+	_, err = linalg.NewTensorWithData(data, 2, 2) // expects 4 elements, got 3
+	if err == nil {
+		t.Error("error was not returned for mismatched data size")
+	}
+}
+
+// TestTensorGetSetErrors tests error cases in Get and Set methods.
+func TestTensorGetSetErrors(t *testing.T) {
+	tensor := linalg.NewTensor(2, 3)
+
+	// Test Get with wrong number of indices
+	_, err := tensor.Get(1)
+	if err == nil {
+		t.Error("error was not returned for wrong number of indices in Get")
+	}
+
+	_, err = tensor.Get(1, 2, 3)
+	if err == nil {
+		t.Error("error was not returned for wrong number of indices in Get")
+	}
+
+	// Test Get with out-of-bounds indices
+	_, err = tensor.Get(-1, 0)
+	if err == nil {
+		t.Error("error was not returned for negative index in Get")
+	}
+
+	_, err = tensor.Get(2, 0)
+	if err == nil {
+		t.Error("error was not returned for index too large in Get")
+	}
+
+	_, err = tensor.Get(0, 3)
+	if err == nil {
+		t.Error("error was not returned for index too large in Get")
+	}
+
+	// Test Set with wrong number of indices
+	err = tensor.Set(1.0, 1)
+	if err == nil {
+		t.Error("error was not returned for wrong number of indices in Set")
+	}
+
+	err = tensor.Set(1.0, 1, 2, 3)
+	if err == nil {
+		t.Error("error was not returned for wrong number of indices in Set")
+	}
+
+	// Test Set with out-of-bounds indices
+	err = tensor.Set(1.0, -1, 0)
+	if err == nil {
+		t.Error("error was not returned for negative index in Set")
+	}
+
+	err = tensor.Set(1.0, 2, 0)
+	if err == nil {
+		t.Error("error was not returned for index too large in Set")
+	}
+
+	err = tensor.Set(1.0, 0, 3)
+	if err == nil {
+		t.Error("error was not returned for index too large in Set")
+	}
+}
+
+// TestTensorIsVectorIsMatrix tests IsVector and IsMatrix methods.
+func TestTensorIsVectorIsMatrix(t *testing.T) {
+	// Test 1D tensor (vector)
+	tensor1d := linalg.NewTensor(5)
+	if !tensor1d.IsVector() {
+		t.Error("1D tensor should be identified as vector")
+	}
+	if tensor1d.IsMatrix() {
+		t.Error("1D tensor should not be identified as matrix")
+	}
+
+	// Test 2D tensor (matrix)
+	tensor2d := linalg.NewTensor(3, 4)
+	if tensor2d.IsVector() {
+		t.Error("2D tensor should not be identified as vector")
+	}
+	if !tensor2d.IsMatrix() {
+		t.Error("2D tensor should be identified as matrix")
+	}
+
+	// Test 3D tensor
+	tensor3d := linalg.NewTensor(2, 3, 4)
+	if tensor3d.IsVector() {
+		t.Error("3D tensor should not be identified as vector")
+	}
+	if tensor3d.IsMatrix() {
+		t.Error("3D tensor should not be identified as matrix")
+	}
+
+	// Test 0D tensor (scalar)
+	tensor0d := linalg.NewTensor()
+	if tensor0d.IsVector() {
+		t.Error("0D tensor should not be identified as vector")
+	}
+	if tensor0d.IsMatrix() {
+		t.Error("0D tensor should not be identified as matrix")
+	}
+}
+
+// TestTensorAsVectorMatrixErrors tests error cases in AsVector and AsMatrix.
+func TestTensorAsVectorMatrixErrors(t *testing.T) {
+	// Test AsVector with non-1D tensor
+	tensor2d := linalg.NewTensor(2, 3)
+	_, err := tensor2d.AsVector()
+	if err == nil {
+		t.Error("error was not returned when converting 2D tensor to vector")
+	}
+
+	tensor3d := linalg.NewTensor(2, 3, 4)
+	_, err = tensor3d.AsVector()
+	if err == nil {
+		t.Error("error was not returned when converting 3D tensor to vector")
+	}
+
+	// Test AsMatrix with non-2D tensor
+	tensor1d := linalg.NewTensor(5)
+	_, err = tensor1d.AsMatrix()
+	if err == nil {
+		t.Error("error was not returned when converting 1D tensor to matrix")
+	}
+
+	tensor3d = linalg.NewTensor(2, 3, 4)
+	_, err = tensor3d.AsMatrix()
+	if err == nil {
+		t.Error("error was not returned when converting 3D tensor to matrix")
+	}
+}
+
+// TestTensorTransposeErrors tests error cases in Transpose.
+func TestTensorTransposeErrors(t *testing.T) {
+	// Test transpose on 1D tensor
+	tensor1d := linalg.NewTensor(5)
+	_, err := tensor1d.Transpose()
+	if err == nil {
+		t.Error("error was not returned when transposing 1D tensor")
+	}
+
+	// Test transpose on 3D tensor
+	tensor3d := linalg.NewTensor(2, 3, 4)
+	_, err = tensor3d.Transpose()
+	if err == nil {
+		t.Error("error was not returned when transposing 3D tensor")
+	}
+}
+
+// TestTensorMatrixMultiplyErrors tests error cases in MatrixMultiply.
+func TestTensorMatrixMultiplyErrors(t *testing.T) {
+	tensor2d, _ := linalg.NewTensorWithData([]float64{1, 2, 3, 4}, 2, 2)
+	tensor1d := linalg.NewTensor(3)
+	tensor3d := linalg.NewTensor(2, 3, 4)
+
+	// Test multiplication with non-2D tensors
+	_, err := tensor1d.MatrixMultiply(tensor2d)
+	if err == nil {
+		t.Error("error was not returned when multiplying 1D tensor as matrix")
+	}
+
+	_, err = tensor2d.MatrixMultiply(tensor1d)
+	if err == nil {
+		t.Error("error was not returned when multiplying with 1D tensor as matrix")
+	}
+
+	_, err = tensor3d.MatrixMultiply(tensor2d)
+	if err == nil {
+		t.Error("error was not returned when multiplying 3D tensor as matrix")
+	}
+
+	// Test multiplication with incompatible dimensions
+	tensor2x3, _ := linalg.NewTensorWithData([]float64{1, 2, 3, 4, 5, 6}, 2, 3)
+	tensor4x2, _ := linalg.NewTensorWithData([]float64{1, 2, 3, 4, 5, 6, 7, 8}, 4, 2)
+	_, err = tensor2x3.MatrixMultiply(tensor4x2)
+	if err == nil {
+		t.Error("error was not returned for incompatible matrix dimensions")
+	}
+}
+
+// TestTensorVectorDotErrors tests error cases in VectorDot.
+func TestTensorVectorDotErrors(t *testing.T) {
+	tensor1d := linalg.NewTensor(3)
+	tensor2d := linalg.NewTensor(2, 3)
+	tensor3d := linalg.NewTensor(2, 3, 4)
+
+	// Test dot product with non-1D tensors
+	_, err := tensor2d.VectorDot(tensor1d)
+	if err == nil {
+		t.Error("error was not returned when computing dot product with 2D tensor")
+	}
+
+	_, err = tensor1d.VectorDot(tensor2d)
+	if err == nil {
+		t.Error("error was not returned when computing dot product with 2D tensor")
+	}
+
+	_, err = tensor3d.VectorDot(tensor1d)
+	if err == nil {
+		t.Error("error was not returned when computing dot product with 3D tensor")
+	}
+
+	// Test dot product with different dimensions
+	tensor1d3 := linalg.NewTensor(3)
+	tensor1d5 := linalg.NewTensor(5)
+	_, err = tensor1d3.VectorDot(tensor1d5)
+	if err == nil {
+		t.Error("error was not returned for different vector dimensions")
+	}
+}
+
+// TestTensorVectorLengthErrors tests error cases in VectorLength.
+func TestTensorVectorLengthErrors(t *testing.T) {
+	tensor2d := linalg.NewTensor(2, 3)
+	tensor3d := linalg.NewTensor(2, 3, 4)
+
+	// Test length calculation on non-1D tensors
+	_, err := tensor2d.VectorLength()
+	if err == nil {
+		t.Error("error was not returned when computing length of 2D tensor")
+	}
+
+	_, err = tensor3d.VectorLength()
+	if err == nil {
+		t.Error("error was not returned when computing length of 3D tensor")
+	}
+}
+
+// TestTensorVectorNormalizeErrors tests error cases in VectorNormalize.
+func TestTensorVectorNormalizeErrors(t *testing.T) {
+	tensor2d := linalg.NewTensor(2, 3)
+	tensor3d := linalg.NewTensor(2, 3, 4)
+
+	// Test normalization on non-1D tensors
+	_, err := tensor2d.VectorNormalize()
+	if err == nil {
+		t.Error("error was not returned when normalizing 2D tensor")
+	}
+
+	_, err = tensor3d.VectorNormalize()
+	if err == nil {
+		t.Error("error was not returned when normalizing 3D tensor")
+	}
+
+	// Test normalization of zero vector
+	zeroVector, _ := linalg.NewTensorWithData([]float64{0, 0, 0}, 3)
+	_, err = zeroVector.VectorNormalize()
+	if err == nil {
+		t.Error("error was not returned when normalizing zero vector")
+	}
+}
+
+// TestTensorShapeMismatchOperations tests operations with mismatched shapes.
+func TestTensorShapeMismatchOperations(t *testing.T) {
+	tensor2x3 := linalg.NewTensor(2, 3)
+	tensor3x2 := linalg.NewTensor(3, 2)
+
+	// Test Add with different shapes
+	_, err := tensor2x3.Add(tensor3x2)
+	if err == nil {
+		t.Error("error was not returned for Add with different shapes")
+	}
+
+	// Test Subtract with different shapes
+	_, err = tensor2x3.Subtract(tensor3x2)
+	if err == nil {
+		t.Error("error was not returned for Subtract with different shapes")
+	}
+}
+
+// TestTensorReshapeErrors tests error cases in Reshape.
+func TestTensorReshapeErrors(t *testing.T) {
+	data := []float64{1, 2, 3, 4, 5, 6}
+	tensor, _ := linalg.NewTensorWithData(data, 2, 3)
+
+	// Test reshape with negative dimension
+	_, err := tensor.Reshape(2, -1)
+	if err == nil {
+		t.Error("error was not returned for negative dimension in reshape")
+	}
+
+	// Test reshape with zero dimension
+	_, err = tensor.Reshape(2, 0)
+	if err == nil {
+		t.Error("error was not returned for zero dimension in reshape")
+	}
+
+	// Test reshape with incompatible total size
+	_, err = tensor.Reshape(2, 4) // 8 elements, but tensor has 6
+	if err == nil {
+		t.Error("error was not returned for incompatible reshape size")
+	}
+}
+
+// TestTensorString tests the String method.
+func TestTensorString(t *testing.T) {
+	tensor := linalg.NewTensor(2, 3)
+	str := tensor.String()
+
+	// String should contain shape, rank, and size information
+	if str == "" {
+		t.Error("String() should not return empty string")
+	}
+
+	// String should contain "Tensor"
+	if len(str) < 6 {
+		t.Error("String() should contain 'Tensor' and other information")
+	}
+}
+
+// TestTensorSize tests the Size method.
+func TestTensorSize(t *testing.T) {
+	tensor := linalg.NewTensor(2, 3, 4)
+	size := tensor.Size()
+
+	expectedSize := 2 * 3 * 4
+	if size != expectedSize {
+		t.Errorf("Size() result differs from expected. expected: %d, actual: %d", expectedSize, size)
+	}
+
+	// Test empty tensor
+	emptyTensor := linalg.NewTensor()
+	if emptyTensor.Size() != 0 {
+		t.Error("empty tensor size should be 0")
+	}
+}
