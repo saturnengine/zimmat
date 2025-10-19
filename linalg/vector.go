@@ -25,9 +25,15 @@ import (
 //	}
 type Vector struct {
 	tensor *Tensor   // Internal tensor (1-dimensional)
-	Data   []float64 // Public field for compatibility (reference to tensor's Data)
-	Dim    int       // Number of dimensions
+	data   []float64 // Private field for compatibility (reference to tensor's Data)
+	dim    int       // Number of dimensions
 }
+
+// Data returns the vector data
+func (v *Vector) Data() []float64 { return v.data }
+
+// Dim returns the number of dimensions
+func (v *Vector) Dim() int { return v.dim }
 
 // NewVector creates a new Vector from the specified elements.
 // If no elements are provided, returns an empty vector.
@@ -47,8 +53,8 @@ func NewVector(elements ...float64) (result Vector) {
 	if len(elements) == 0 {
 		result = Vector{
 			tensor: NewTensor(),
-			Data:   []float64{},
-			Dim:    0,
+			data:   []float64{},
+			dim:    0,
 		}
 		return
 	}
@@ -58,16 +64,16 @@ func NewVector(elements ...float64) (result Vector) {
 		// Return zero value instead of panicking
 		result = Vector{
 			tensor: NewTensor(),
-			Data:   []float64{},
-			Dim:    0,
+			data:   []float64{},
+			dim:    0,
 		}
 		return
 	}
 
 	result = Vector{
 		tensor: tensor,
-		Data:   tensor.Data, // Reference to tensor's Data
-		Dim:    len(elements),
+		data:   tensor.Data(), // Reference to tensor's Data
+		dim:    len(elements),
 	}
 	return
 }
@@ -94,14 +100,14 @@ func NewVector(elements ...float64) (result Vector) {
 //	}
 func NewVectorFromTensor(tensor *Tensor) (result Vector, err error) {
 	if !tensor.IsVector() {
-		err = fmt.Errorf("tensor with shape %v is not a vector", tensor.Shape)
+		err = fmt.Errorf("tensor with shape %v is not a vector", tensor.Shape())
 		return
 	}
 
 	result = Vector{
 		tensor: tensor.Clone(),
-		Data:   tensor.Data,
-		Dim:    tensor.Shape[0],
+		data:   tensor.Data(),
+		dim:    tensor.Shape()[0],
 	}
 	return
 }
@@ -122,7 +128,7 @@ func NewVectorFromTensor(tensor *Tensor) (result Vector, err error) {
 //	v2 := linalg.NewVector(4.0, 5.0, 6.0)
 //	result, err := v1.Add(v2)
 //	// result contains [5.0, 7.0, 9.0]
-func (v Vector) Add(other Vector) (vectorResult Vector, err error) {
+func (v *Vector) Add(other Vector) (vectorResult Vector, err error) {
 	result, err := v.tensor.Add(other.tensor)
 	if err != nil {
 		err = fmt.Errorf("vector addition error: %v", err)
@@ -154,7 +160,7 @@ func (v Vector) Add(other Vector) (vectorResult Vector, err error) {
 //	v2 := linalg.NewVector(1.0, 2.0, 3.0)
 //	result, err := v1.Subtract(v2)
 //	// result contains [4.0, 5.0, 6.0]
-func (v Vector) Subtract(other Vector) (vectorResult Vector, err error) {
+func (v *Vector) Subtract(other Vector) (vectorResult Vector, err error) {
 	result, err := v.tensor.Subtract(other.tensor)
 	if err != nil {
 		err = fmt.Errorf("vector subtraction error: %v", err)
@@ -184,7 +190,7 @@ func (v Vector) Subtract(other Vector) (vectorResult Vector, err error) {
 //	v := linalg.NewVector(1.0, 2.0, 3.0)
 //	scaled := v.Scale(2.5)
 //	// scaled contains [2.5, 5.0, 7.5]
-func (v Vector) Scale(scalar float64) (vectorResult Vector) {
+func (v *Vector) Scale(scalar float64) (vectorResult Vector) {
 	result := v.tensor.Scale(scalar)
 
 	vectorResult, err := NewVectorFromTensor(result)
@@ -192,8 +198,8 @@ func (v Vector) Scale(scalar float64) (vectorResult Vector) {
 		// Return zero vector instead of panicking
 		vectorResult = Vector{
 			tensor: NewTensor(),
-			Data:   []float64{},
-			Dim:    0,
+			data:   []float64{},
+			dim:    0,
 		}
 		return
 	}
@@ -219,7 +225,7 @@ func (v Vector) Scale(scalar float64) (vectorResult Vector) {
 //	v2 := linalg.NewVector(4.0, 5.0, 6.0)
 //	dot, err := v1.Dot(v2)
 //	// dot = 1*4 + 2*5 + 3*6 = 32.0
-func (v Vector) Dot(other Vector) (dotProduct float64, err error) {
+func (v *Vector) Dot(other Vector) (dotProduct float64, err error) {
 	dotProduct, err = v.tensor.VectorDot(other.tensor)
 	return
 }
@@ -237,8 +243,8 @@ func (v Vector) Dot(other Vector) (dotProduct float64, err error) {
 //
 //	v := linalg.NewVector(3.0, 4.0)
 //	lengthSq := v.LengthSq() // 25.0 (3² + 4²)
-func (v Vector) LengthSq() (lengthSquared float64) {
-	dot, err := v.Dot(v)
+func (v *Vector) LengthSq() (lengthSquared float64) {
+	dot, err := v.Dot(*v)
 	if err != nil {
 		lengthSquared = 0 // Return 0 if error occurs
 		return
@@ -258,7 +264,7 @@ func (v Vector) LengthSq() (lengthSquared float64) {
 //
 //	v := linalg.NewVector(3.0, 4.0)
 //	length := v.Length() // 5.0 (√(3² + 4²))
-func (v Vector) Length() (length float64) {
+func (v *Vector) Length() (length float64) {
 	length, err := v.tensor.VectorLength()
 	if err != nil {
 		length = 0 // Return 0 if error occurs
@@ -281,7 +287,7 @@ func (v Vector) Length() (length float64) {
 //	v := linalg.NewVector(3.0, 4.0)
 //	unit, err := v.Normalize()
 //	// unit contains [0.6, 0.8] with length 1.0
-func (v Vector) Normalize() (vectorResult Vector, err error) {
+func (v *Vector) Normalize() (vectorResult Vector, err error) {
 	normalized, err := v.tensor.VectorNormalize()
 	if err != nil {
 		err = fmt.Errorf("vector normalization error: %v", err)
@@ -310,7 +316,7 @@ func (v Vector) Normalize() (vectorResult Vector, err error) {
 //
 //	v := linalg.NewVector(1.0, 2.0, 3.0)
 //	val, err := v.Get(1) // Returns 2.0
-func (v Vector) Get(index int) (value float64, err error) {
+func (v *Vector) Get(index int) (value float64, err error) {
 	value, err = v.tensor.Get(index)
 	return
 }
@@ -328,7 +334,7 @@ func (v Vector) Get(index int) (value float64, err error) {
 //
 //	v := linalg.NewVector(1.0, 2.0, 3.0)
 //	err := v.Set(1, 5.0) // Sets element at index 1 to 5.0
-func (v Vector) Set(index int, value float64) (err error) {
+func (v *Vector) Set(index int, value float64) (err error) {
 	err = v.tensor.Set(value, index)
 	if err != nil {
 		return
@@ -348,7 +354,7 @@ func (v Vector) Set(index int, value float64) (err error) {
 //	v := linalg.NewVector(1.0, 2.0, 3.0)
 //	t := v.AsTensor()
 //	// t is a 1D tensor with shape [3]
-func (v Vector) AsTensor() (result *Tensor) {
+func (v *Vector) AsTensor() (result *Tensor) {
 	result = v.tensor.Clone()
 	return
 }
@@ -364,12 +370,12 @@ func (v Vector) AsTensor() (result *Tensor) {
 //	original := linalg.NewVector(1.0, 2.0, 3.0)
 //	copy := original.Clone()
 //	copy.Set(0, 10.0) // Doesn't affect original
-func (v Vector) Clone() (result Vector) {
+func (v *Vector) Clone() (result Vector) {
 	clonedTensor := v.tensor.Clone()
 	result = Vector{
 		tensor: clonedTensor,
-		Data:   clonedTensor.Data,
-		Dim:    v.Dim,
+		data:   clonedTensor.Data(),
+		dim:    v.dim,
 	}
 	return
 }

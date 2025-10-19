@@ -50,10 +50,19 @@ import (
 //	t.Set(1.5, 0, 1) // Set element at row 0, column 1
 //	val, _ := t.Get(0, 1) // Get element at row 0, column 1
 type Tensor struct {
-	Data  []float64 // Flattened data stored in row-major order
-	Shape []int     // Size of each dimension (e.g., [2, 3] = 2x3 matrix, [5] = 5D vector)
-	Rank  int       // Number of dimensions (tensor order)
+	data  []float64 // Flattened data stored in row-major order
+	shape []int     // Size of each dimension (e.g., [2, 3] = 2x3 matrix, [5] = 5D vector)
+	rank  int       // Number of dimensions (tensor order)
 }
+
+// Data returns the flattened data stored in row-major order
+func (t *Tensor) Data() []float64 { return t.data }
+
+// Shape returns the size of each dimension
+func (t *Tensor) Shape() []int { return t.shape }
+
+// Rank returns the number of dimensions (tensor order)
+func (t *Tensor) Rank() int { return t.rank }
 
 // NewTensor creates a new tensor with the specified shape.
 // All elements are initialized to zero.
@@ -73,7 +82,7 @@ type Tensor struct {
 //	cube := linalg.NewTensor(2, 2, 2) // 2x2x2 tensor (8 elements)
 func NewTensor(shape ...int) (result *Tensor) {
 	if len(shape) == 0 {
-		result = &Tensor{Data: []float64{}, Shape: []int{}, Rank: 0}
+		result = &Tensor{data: []float64{}, shape: []int{}, rank: 0}
 		return
 	}
 
@@ -82,16 +91,16 @@ func NewTensor(shape ...int) (result *Tensor) {
 	for _, dim := range shape {
 		if dim <= 0 {
 			// Return empty tensor instead of panicking
-			result = &Tensor{Data: []float64{}, Shape: []int{}, Rank: 0}
+			result = &Tensor{data: []float64{}, shape: []int{}, rank: 0}
 			return
 		}
 		size *= dim
 	}
 
 	result = &Tensor{
-		Data:  make([]float64, size),
-		Shape: append([]int(nil), shape...), // Copy slice
-		Rank:  len(shape),
+		data:  make([]float64, size),
+		shape: append([]int(nil), shape...), // Copy slice
+		rank:  len(shape),
 	}
 	return
 }
@@ -119,7 +128,7 @@ func NewTensor(shape ...int) (result *Tensor) {
 //	}
 func NewTensorWithData(data []float64, shape ...int) (result *Tensor, err error) {
 	if len(shape) == 0 {
-		result = &Tensor{Data: []float64{}, Shape: []int{}, Rank: 0}
+		result = &Tensor{data: []float64{}, shape: []int{}, rank: 0}
 		return
 	}
 
@@ -140,32 +149,32 @@ func NewTensorWithData(data []float64, shape ...int) (result *Tensor, err error)
 	}
 
 	result = &Tensor{
-		Data:  append([]float64(nil), data...), // Copy data
-		Shape: append([]int(nil), shape...),    // Copy shape
-		Rank:  len(shape),
+		data:  append([]float64(nil), data...), // Copy data
+		shape: append([]int(nil), shape...),    // Copy shape
+		rank:  len(shape),
 	}
 	return
 }
 
 // flatIndex converts multi-dimensional indices to a one-dimensional index.
 func (t *Tensor) flatIndex(indices []int) (flatIdx int, err error) {
-	if len(indices) != t.Rank {
+	if len(indices) != t.rank {
 		err = fmt.Errorf("number of indices (%d) does not match tensor rank (%d)",
-			len(indices), t.Rank)
+			len(indices), t.rank)
 		return
 	}
 
 	multiplier := 1
 
 	// Calculate index in row-major (C-style) order
-	for i := t.Rank - 1; i >= 0; i-- {
-		if indices[i] < 0 || indices[i] >= t.Shape[i] {
+	for i := t.rank - 1; i >= 0; i-- {
+		if indices[i] < 0 || indices[i] >= t.shape[i] {
 			err = fmt.Errorf("index[%d]=%d is out of bounds (0-%d)",
-				i, indices[i], t.Shape[i]-1)
+				i, indices[i], t.shape[i]-1)
 			return
 		}
 		flatIdx += indices[i] * multiplier
-		multiplier *= t.Shape[i]
+		multiplier *= t.shape[i]
 	}
 
 	return
@@ -194,7 +203,7 @@ func (t *Tensor) Get(indices ...int) (value float64, err error) {
 	if err != nil {
 		return
 	}
-	value = t.Data[flatIdx]
+	value = t.data[flatIdx]
 	return
 }
 
@@ -222,7 +231,7 @@ func (t *Tensor) Set(value float64, indices ...int) (err error) {
 	if err != nil {
 		return
 	}
-	t.Data[flatIdx] = value
+	t.data[flatIdx] = value
 	return
 }
 
@@ -237,7 +246,7 @@ func (t *Tensor) Set(value float64, indices ...int) (err error) {
 //	t := linalg.NewTensor(2, 3, 4) // 2x3x4 tensor
 //	size := t.Size() // Returns 24 (2 * 3 * 4)
 func (t *Tensor) Size() (size int) {
-	size = len(t.Data)
+	size = len(t.data)
 	return
 }
 
@@ -255,9 +264,9 @@ func (t *Tensor) Size() (size int) {
 //	copy.Set(42.0, 0, 0) // Doesn't affect original
 func (t *Tensor) Clone() (result *Tensor) {
 	result = &Tensor{
-		Data:  append([]float64(nil), t.Data...),
-		Shape: append([]int(nil), t.Shape...),
-		Rank:  t.Rank,
+		data:  append([]float64(nil), t.data...),
+		shape: append([]int(nil), t.shape...),
+		rank:  t.rank,
 	}
 	return
 }
@@ -274,16 +283,16 @@ func (t *Tensor) Reshape(newShape ...int) (result *Tensor, err error) {
 		newSize *= dim
 	}
 
-	if newSize != len(t.Data) {
+	if newSize != len(t.data) {
 		err = fmt.Errorf("new shape (%v) total elements (%d) does not match current data size (%d)",
-			newShape, newSize, len(t.Data))
+			newShape, newSize, len(t.data))
 		return
 	}
 
 	result = &Tensor{
-		Data:  append([]float64(nil), t.Data...), // Copy data
-		Shape: append([]int(nil), newShape...),   // Copy new shape
-		Rank:  len(newShape),
+		data:  append([]float64(nil), t.data...), // Copy data
+		shape: append([]int(nil), newShape...),   // Copy new shape
+		rank:  len(newShape),
 	}
 	return
 }
@@ -291,13 +300,13 @@ func (t *Tensor) Reshape(newShape ...int) (result *Tensor, err error) {
 // Add performs element-wise addition between tensors.
 func (t *Tensor) Add(other *Tensor) (result *Tensor, err error) {
 	if !t.sameShape(other) {
-		err = fmt.Errorf("tensor shapes differ: %v and %v", t.Shape, other.Shape)
+		err = fmt.Errorf("tensor shapes differ: %v and %v", t.shape, other.shape)
 		return
 	}
 
 	result = t.Clone()
-	for i := range result.Data {
-		result.Data[i] += other.Data[i]
+	for i := range result.data {
+		result.data[i] += other.data[i]
 	}
 
 	return
@@ -306,13 +315,13 @@ func (t *Tensor) Add(other *Tensor) (result *Tensor, err error) {
 // Subtract performs element-wise subtraction between tensors.
 func (t *Tensor) Subtract(other *Tensor) (result *Tensor, err error) {
 	if !t.sameShape(other) {
-		err = fmt.Errorf("tensor shapes differ: %v and %v", t.Shape, other.Shape)
+		err = fmt.Errorf("tensor shapes differ: %v and %v", t.shape, other.shape)
 		return
 	}
 
 	result = t.Clone()
-	for i := range result.Data {
-		result.Data[i] -= other.Data[i]
+	for i := range result.data {
+		result.data[i] -= other.data[i]
 	}
 
 	return
@@ -321,20 +330,20 @@ func (t *Tensor) Subtract(other *Tensor) (result *Tensor, err error) {
 // Scale multiplies all tensor elements by a scalar value.
 func (t *Tensor) Scale(scalar float64) (result *Tensor) {
 	result = t.Clone()
-	for i := range result.Data {
-		result.Data[i] *= scalar
+	for i := range result.data {
+		result.data[i] *= scalar
 	}
 	return
 }
 
 // sameShape checks if two tensors have the same shape.
 func (t *Tensor) sameShape(other *Tensor) (isSame bool) {
-	if t.Rank != other.Rank {
+	if t.rank != other.rank {
 		isSame = false
 		return
 	}
-	for i := range t.Shape {
-		if t.Shape[i] != other.Shape[i] {
+	for i := range t.shape {
+		if t.shape[i] != other.shape[i] {
 			isSame = false
 			return
 		}
@@ -345,26 +354,26 @@ func (t *Tensor) sameShape(other *Tensor) (isSame bool) {
 
 // IsVector checks if the tensor is 1-dimensional (vector).
 func (t *Tensor) IsVector() (isVector bool) {
-	isVector = t.Rank == 1
+	isVector = t.rank == 1
 	return
 }
 
 // IsMatrix checks if the tensor is 2-dimensional (matrix).
 func (t *Tensor) IsMatrix() (isMatrix bool) {
-	isMatrix = t.Rank == 2
+	isMatrix = t.rank == 2
 	return
 }
 
 // AsVector treats the tensor as a Vector (1-dimensional only).
 func (t *Tensor) AsVector() (result Vector, err error) {
 	if !t.IsVector() {
-		err = fmt.Errorf("tensor with shape %v cannot be converted to vector", t.Shape)
+		err = fmt.Errorf("tensor with shape %v cannot be converted to vector", t.shape)
 		return
 	}
 
 	result = Vector{
-		Data: append([]float64(nil), t.Data...), // Copy data
-		Dim:  t.Shape[0],
+		data: append([]float64(nil), t.data...), // Copy data
+		dim:  t.shape[0],
 	}
 	return
 }
@@ -372,14 +381,14 @@ func (t *Tensor) AsVector() (result Vector, err error) {
 // AsMatrix treats the tensor as a Matrix (2-dimensional only).
 func (t *Tensor) AsMatrix() (result Matrix, err error) {
 	if !t.IsMatrix() {
-		err = fmt.Errorf("tensor with shape %v cannot be converted to matrix", t.Shape)
+		err = fmt.Errorf("tensor with shape %v cannot be converted to matrix", t.shape)
 		return
 	}
 
 	result = Matrix{
-		Data: append([]float64(nil), t.Data...), // Copy data
-		Rows: t.Shape[0],
-		Cols: t.Shape[1],
+		data: append([]float64(nil), t.data...), // Copy data
+		rows: t.shape[0],
+		cols: t.shape[1],
 	}
 	return
 }
@@ -387,11 +396,11 @@ func (t *Tensor) AsMatrix() (result Matrix, err error) {
 // Transpose performs transposition of a 2-dimensional tensor (matrix).
 func (t *Tensor) Transpose() (result *Tensor, err error) {
 	if !t.IsMatrix() {
-		err = fmt.Errorf("transpose can only be performed on 2-dimensional tensors. current shape: %v", t.Shape)
+		err = fmt.Errorf("transpose can only be performed on 2-dimensional tensors. current shape: %v", t.shape)
 		return
 	}
 
-	rows, cols := t.Shape[0], t.Shape[1]
+	rows, cols := t.shape[0], t.shape[1]
 	result = NewTensor(cols, rows) // Swap rows and columns
 
 	for i := 0; i < rows; i++ {
@@ -411,19 +420,19 @@ func (t *Tensor) MatrixMultiply(other *Tensor) (result *Tensor, err error) {
 		return
 	}
 
-	if t.Shape[1] != other.Shape[0] {
+	if t.shape[1] != other.shape[0] {
 		err = fmt.Errorf("matrix multiplication rule violation: left columns (%d) != right rows (%d)",
-			t.Shape[1], other.Shape[0])
+			t.shape[1], other.shape[0])
 		return
 	}
 
-	resultRows, resultCols := t.Shape[0], other.Shape[1]
+	resultRows, resultCols := t.shape[0], other.shape[1]
 	result = NewTensor(resultRows, resultCols)
 
 	for i := 0; i < resultRows; i++ {
 		for j := 0; j < resultCols; j++ {
 			var sum float64
-			for k := 0; k < t.Shape[1]; k++ {
+			for k := 0; k < t.shape[1]; k++ {
 				val1, _ := t.Get(i, k)
 				val2, _ := other.Get(k, j)
 				sum += val1 * val2
@@ -442,13 +451,13 @@ func (t *Tensor) VectorDot(other *Tensor) (dotProduct float64, err error) {
 		return
 	}
 
-	if t.Shape[0] != other.Shape[0] {
-		err = fmt.Errorf("vector dimensions differ: %d and %d", t.Shape[0], other.Shape[0])
+	if t.shape[0] != other.shape[0] {
+		err = fmt.Errorf("vector dimensions differ: %d and %d", t.shape[0], other.shape[0])
 		return
 	}
 
-	for i := 0; i < t.Shape[0]; i++ {
-		dotProduct += t.Data[i] * other.Data[i]
+	for i := 0; i < t.shape[0]; i++ {
+		dotProduct += t.data[i] * other.data[i]
 	}
 
 	return
@@ -462,7 +471,7 @@ func (t *Tensor) VectorLength() (length float64, err error) {
 	}
 
 	var sum float64
-	for _, val := range t.Data {
+	for _, val := range t.data {
 		sum += val * val
 	}
 
@@ -493,6 +502,6 @@ func (t *Tensor) VectorNormalize() (result *Tensor, err error) {
 
 // String returns the string representation of the tensor (for debugging).
 func (t *Tensor) String() (str string) {
-	str = fmt.Sprintf("Tensor{Shape: %v, Rank: %d, Size: %d}", t.Shape, t.Rank, len(t.Data))
+	str = fmt.Sprintf("Tensor{Shape: %v, Rank: %d, Size: %d}", t.shape, t.rank, len(t.data))
 	return
 }

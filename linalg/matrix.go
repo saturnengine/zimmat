@@ -22,15 +22,25 @@ import (
 //	data := [][]float64{{1, 2}, {3, 4}}
 //	m, err := linalg.NewMatrix(data)
 //	if err != nil {
-//		panic(err)
+//		log.Printf("Error creating matrix: %v", err)
+//		return
 //	}
 //	det, _ := m.Determinant() // Returns -2.0
 type Matrix struct {
 	tensor *Tensor   // Internal tensor (2-dimensional)
-	Data   []float64 // Public field for compatibility (reference to tensor's Data)
-	Rows   int       // Number of rows (n)
-	Cols   int       // Number of columns (m)
+	data   []float64 // Private field for compatibility (reference to tensor's Data)
+	rows   int       // Number of rows (n)
+	cols   int       // Number of columns (m)
 }
+
+// Data returns the flattened data
+func (m *Matrix) Data() []float64 { return m.data }
+
+// Rows returns the number of rows
+func (m *Matrix) Rows() int { return m.rows }
+
+// Cols returns the number of columns
+func (m *Matrix) Cols() int { return m.cols }
 
 // NewMatrix creates a new Matrix from a 2D slice of float64 values.
 // Each inner slice represents a row of the matrix.
@@ -78,9 +88,9 @@ func NewMatrix(data [][]float64) (result Matrix, err error) {
 
 	result = Matrix{
 		tensor: tensor,
-		Data:   tensor.Data,
-		Rows:   rows,
-		Cols:   cols,
+		data:   tensor.Data(),
+		rows:   rows,
+		cols:   cols,
 	}
 	return
 }
@@ -100,19 +110,20 @@ func NewMatrix(data [][]float64) (result Matrix, err error) {
 //	t := linalg.NewTensor(2, 3) // 2x3 tensor
 //	m, err := linalg.NewMatrixFromTensor(t)
 //	if err != nil {
-//		panic(err)
+//		log.Printf("Error creating matrix from tensor: %v", err)
+//		return
 //	}
 func NewMatrixFromTensor(tensor *Tensor) (result Matrix, err error) {
 	if !tensor.IsMatrix() {
-		err = fmt.Errorf("tensor with shape %v is not a matrix", tensor.Shape)
+		err = fmt.Errorf("tensor with shape %v is not a matrix", tensor.Shape())
 		return
 	}
 
 	result = Matrix{
 		tensor: tensor.Clone(),
-		Data:   tensor.Data,
-		Rows:   tensor.Shape[0],
-		Cols:   tensor.Shape[1],
+		data:   tensor.Data(),
+		rows:   tensor.Shape()[0],
+		cols:   tensor.Shape()[1],
 	}
 	return
 }
@@ -133,9 +144,9 @@ func NewZeroMatrix(rows, cols int) (result Matrix) {
 	tensor := NewTensor(rows, cols)
 	result = Matrix{
 		tensor: tensor,
-		Data:   tensor.Data,
-		Rows:   rows,
-		Cols:   cols,
+		data:   tensor.Data(),
+		rows:   rows,
+		cols:   cols,
 	}
 	return
 }
@@ -175,7 +186,7 @@ func NewIdentityMatrix(size int) (result Matrix) {
 //	data := [][]float64{{1, 2}, {3, 4}}
 //	m, _ := linalg.NewMatrix(data)
 //	val, err := m.Get(1, 0) // Returns 3.0
-func (m Matrix) Get(row, col int) (value float64, err error) {
+func (m *Matrix) Get(row, col int) (value float64, err error) {
 	value, err = m.tensor.Get(row, col)
 	return
 }
@@ -194,7 +205,7 @@ func (m Matrix) Get(row, col int) (value float64, err error) {
 //
 //	m := linalg.NewZeroMatrix(2, 2)
 //	err := m.Set(0, 1, 5.0) // Sets element at row 0, column 1 to 5.0
-func (m Matrix) Set(row, col int, val float64) (err error) {
+func (m *Matrix) Set(row, col int, val float64) (err error) {
 	err = m.tensor.Set(val, row, col)
 	if err != nil {
 		return
@@ -204,7 +215,7 @@ func (m Matrix) Set(row, col int, val float64) (err error) {
 }
 
 // Add returns a new matrix that is the element-wise sum of this matrix and another matrix.
-func (m Matrix) Add(other Matrix) (matrixResult Matrix, err error) {
+func (m *Matrix) Add(other Matrix) (matrixResult Matrix, err error) {
 	result, err := m.tensor.Add(other.tensor)
 	if err != nil {
 		err = fmt.Errorf("matrix addition error: %v", err)
@@ -221,7 +232,7 @@ func (m Matrix) Add(other Matrix) (matrixResult Matrix, err error) {
 }
 
 // Subtract returns a new matrix that is the element-wise difference of this matrix and another matrix.
-func (m Matrix) Subtract(other Matrix) (matrixResult Matrix, err error) {
+func (m *Matrix) Subtract(other Matrix) (matrixResult Matrix, err error) {
 	result, err := m.tensor.Subtract(other.tensor)
 	if err != nil {
 		err = fmt.Errorf("matrix subtraction error: %v", err)
@@ -238,7 +249,7 @@ func (m Matrix) Subtract(other Matrix) (matrixResult Matrix, err error) {
 }
 
 // Scale returns a new matrix that is this matrix multiplied by a scalar value.
-func (m Matrix) Scale(scalar float64) (matrixResult Matrix) {
+func (m *Matrix) Scale(scalar float64) (matrixResult Matrix) {
 	result := m.tensor.Scale(scalar)
 
 	matrixResult, err := NewMatrixFromTensor(result)
@@ -252,7 +263,7 @@ func (m Matrix) Scale(scalar float64) (matrixResult Matrix) {
 }
 
 // Multiply returns a new matrix that is the product of this matrix (A) and another matrix (B), resulting in C = A * B.
-func (m Matrix) Multiply(other Matrix) (matrixResult Matrix, err error) {
+func (m *Matrix) Multiply(other Matrix) (matrixResult Matrix, err error) {
 	result, err := m.tensor.MatrixMultiply(other.tensor)
 	if err != nil {
 		err = fmt.Errorf("matrix multiplication error: %v", err)
@@ -269,7 +280,7 @@ func (m Matrix) Multiply(other Matrix) (matrixResult Matrix, err error) {
 }
 
 // Transpose returns the transpose of the current matrix.
-func (m Matrix) Transpose() (matrixResult Matrix) {
+func (m *Matrix) Transpose() (matrixResult Matrix) {
 	result, err := m.tensor.Transpose()
 	if err != nil {
 		// Return zero matrix instead of panicking
@@ -288,19 +299,19 @@ func (m Matrix) Transpose() (matrixResult Matrix) {
 }
 
 // AsTensor returns a copy of this matrix as a Tensor.
-func (m Matrix) AsTensor() (result *Tensor) {
+func (m *Matrix) AsTensor() (result *Tensor) {
 	result = m.tensor.Clone()
 	return
 }
 
 // Clone creates a complete deep copy of the matrix.
-func (m Matrix) Clone() (result Matrix) {
+func (m *Matrix) Clone() (result Matrix) {
 	clonedTensor := m.tensor.Clone()
 	result = Matrix{
 		tensor: clonedTensor,
-		Data:   clonedTensor.Data,
-		Rows:   m.Rows,
-		Cols:   m.Cols,
+		data:   clonedTensor.Data(),
+		rows:   m.rows,
+		cols:   m.cols,
 	}
 	return
 }
@@ -308,12 +319,12 @@ func (m Matrix) Clone() (result Matrix) {
 // Determinant calculates the determinant of a square matrix.
 // For matrices up to 3x3, it uses direct formulas/cofactor expansion.
 // For larger matrices, it uses recursive cofactor expansion (computationally expensive).
-func (m Matrix) Determinant() (det float64, err error) {
-	if m.Rows != m.Cols {
-		err = fmt.Errorf("determinant is only defined for square matrices (%d x %d)", m.Rows, m.Cols)
+func (m *Matrix) Determinant() (det float64, err error) {
+	if m.rows != m.cols {
+		err = fmt.Errorf("determinant is only defined for square matrices (%d x %d)", m.rows, m.cols)
 		return
 	}
-	n := m.Rows
+	n := m.rows
 
 	if n == 1 {
 		det, _ = m.Get(0, 0)
@@ -361,13 +372,13 @@ func (m Matrix) Determinant() (det float64, err error) {
 }
 
 // Inverse calculates the inverse matrix of the current matrix using Gauss-Jordan elimination.
-func (m Matrix) Inverse() (result Matrix, err error) {
-	if m.Rows != m.Cols {
-		err = fmt.Errorf("inverse is only defined for square matrices (%d x %d)", m.Rows, m.Cols)
+func (m *Matrix) Inverse() (result Matrix, err error) {
+	if m.rows != m.cols {
+		err = fmt.Errorf("inverse is only defined for square matrices (%d x %d)", m.rows, m.cols)
 		return
 	}
 
-	n := m.Rows
+	n := m.rows
 	// Create augmented matrix [A|I]
 	augmented := NewZeroMatrix(n, 2*n)
 
@@ -447,15 +458,15 @@ func (m Matrix) Inverse() (result Matrix, err error) {
 }
 
 // IsDiagonal checks if the matrix is a diagonal matrix (all non-diagonal elements are zero).
-func (m Matrix) IsDiagonal() (isDiagonal bool) {
-	if m.Rows != m.Cols {
+func (m *Matrix) IsDiagonal() (isDiagonal bool) {
+	if m.rows != m.cols {
 		isDiagonal = false
 		return
 	} // Diagonal matrices must be square
 
 	const epsilon = 1e-9
-	for i := 0; i < m.Rows; i++ {
-		for j := 0; j < m.Cols; j++ {
+	for i := 0; i < m.rows; i++ {
+		for j := 0; j < m.cols; j++ {
 			if i != j {
 				val, _ := m.Get(i, j)
 				if math.Abs(val) > epsilon {
@@ -470,15 +481,15 @@ func (m Matrix) IsDiagonal() (isDiagonal bool) {
 }
 
 // IsSymmetric checks if the matrix is symmetric (A = A^T).
-func (m Matrix) IsSymmetric() (isSymmetric bool) {
-	if m.Rows != m.Cols {
+func (m *Matrix) IsSymmetric() (isSymmetric bool) {
+	if m.rows != m.cols {
 		isSymmetric = false
 		return
 	}
 
 	const epsilon = 1e-9
-	for i := 0; i < m.Rows; i++ {
-		for j := i + 1; j < m.Cols; j++ { // Check only upper part above diagonal
+	for i := 0; i < m.rows; i++ {
+		for j := i + 1; j < m.cols; j++ { // Check only upper part above diagonal
 			val_ij, _ := m.Get(i, j)
 			val_ji, _ := m.Get(j, i)
 			if math.Abs(val_ij-val_ji) > epsilon {
@@ -492,14 +503,14 @@ func (m Matrix) IsSymmetric() (isSymmetric bool) {
 }
 
 // IsUpperTriangular checks if the matrix is upper triangular (all elements below diagonal are zero).
-func (m Matrix) IsUpperTriangular() (isUpperTriangular bool) {
-	if m.Rows != m.Cols {
+func (m *Matrix) IsUpperTriangular() (isUpperTriangular bool) {
+	if m.rows != m.cols {
 		isUpperTriangular = false
 		return
 	}
 
 	const epsilon = 1e-9
-	for i := 1; i < m.Rows; i++ { // From row 1
+	for i := 1; i < m.rows; i++ { // From row 1
 		for j := 0; j < i; j++ { // Check elements below diagonal
 			val, _ := m.Get(i, j)
 			if math.Abs(val) > epsilon {
@@ -513,15 +524,15 @@ func (m Matrix) IsUpperTriangular() (isUpperTriangular bool) {
 }
 
 // IsLowerTriangular checks if the matrix is lower triangular (all elements above diagonal are zero).
-func (m Matrix) IsLowerTriangular() (isLowerTriangular bool) {
-	if m.Rows != m.Cols {
+func (m *Matrix) IsLowerTriangular() (isLowerTriangular bool) {
+	if m.rows != m.cols {
 		isLowerTriangular = false
 		return
 	}
 
 	const epsilon = 1e-9
-	for i := 0; i < m.Rows; i++ {
-		for j := i + 1; j < m.Cols; j++ { // Check elements above diagonal
+	for i := 0; i < m.rows; i++ {
+		for j := i + 1; j < m.cols; j++ { // Check elements above diagonal
 			val, _ := m.Get(i, j)
 			if math.Abs(val) > epsilon {
 				isLowerTriangular = false

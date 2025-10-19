@@ -1,493 +1,685 @@
 package linalg_test
 
 import (
+	"math"
 	"testing"
 
 	"github.com/saturnengine/zimmat/linalg"
+	"github.com/stretchr/testify/assert"
 )
+
+// Tolerance (epsilon) for float comparison
+const floatTolerance = 1e-9
+
+// almostEqual compares floating-point numbers within tolerance.
+func almostEqual(a, b float64) bool {
+	return math.Abs(a-b) < floatTolerance
+}
 
 // testMatricesEqual checks if two matrices are equal (elements, rows, columns match within tolerance).
 func testMatricesEqual(m1, m2 linalg.Matrix) bool {
-	if m1.Rows != m2.Rows || m1.Cols != m2.Cols {
+	if m1.Rows() != m2.Rows() || m1.Cols() != m2.Cols() {
 		return false
 	}
-	if len(m1.Data) != len(m2.Data) {
+	if len(m1.Data()) != len(m2.Data()) {
 		return false
 	}
 
-	for i := range m1.Data {
-		if !almostEqual(m1.Data[i], m2.Data[i]) {
+	for i := range m1.Data() {
+		if !almostEqual(m1.Data()[i], m2.Data()[i]) {
 			return false
 		}
 	}
 	return true
 }
 
-// TestNewMatrix tests the NewMatrix function.
+// TestNewMatrix tests the NewMatrix function with table-driven tests.
 func TestNewMatrix(t *testing.T) {
-	// Normal initialization (2x3)
-	data := [][]float64{
-		{1.0, 2.0, 3.0},
-		{4.0, 5.0, 6.0},
+	tests := []struct {
+		name    string
+		data    [][]float64
+		wantErr bool
+		rows    int
+		cols    int
+	}{
+		{
+			name: "valid 2x3 matrix",
+			data: [][]float64{
+				{1.0, 2.0, 3.0},
+				{4.0, 5.0, 6.0},
+			},
+			wantErr: false,
+			rows:    2,
+			cols:    3,
+		},
+		{
+			name:    "empty data",
+			data:    [][]float64{},
+			wantErr: true,
+		},
+		{
+			name: "inconsistent row lengths",
+			data: [][]float64{
+				{1, 2},
+				{3, 4, 5},
+			},
+			wantErr: true,
+		},
+		{
+			name:    "single element matrix",
+			data:    [][]float64{{42.0}},
+			wantErr: false,
+			rows:    1,
+			cols:    1,
+		},
 	}
-	m, err := linalg.NewMatrix(data)
-	if err != nil {
-		t.Fatalf("error occurred in NewMatrix: %v", err)
-	}
-	if m.Rows != 2 || m.Cols != 3 {
-		t.Errorf("size differs from expected. expected: 2x3, actual: %dx%d", m.Rows, m.Cols)
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m, err := linalg.NewMatrix(tt.data)
+			if tt.wantErr {
+				assert.Error(t, err)
+				return
+			}
+			assert.NoError(t, err)
+			assert.Equal(t, tt.rows, m.Rows())
+			assert.Equal(t, tt.cols, m.Cols())
+		})
 	}
 }
 
-// TestMatrixGetAndSet tests the Get and Set methods.
-func TestMatrixGetAndSet(t *testing.T) {
-	data := [][]float64{{1.1, 2.2}, {3.3, 4.4}}
-	m, _ := linalg.NewMatrix(data)
+// TestMatrixGetSet tests the Get and Set methods with table-driven tests.
+func TestMatrixGetSet(t *testing.T) {
+	m, _ := linalg.NewMatrix([][]float64{{1.1, 2.2}, {3.3, 4.4}})
 
-	// Test Get
-	val, _ := m.Get(1, 0)
-	if !almostEqual(val, 3.3) {
-		t.Errorf("Get result differs from expected. expected: 3.3, actual: %f", val)
+	getTests := []struct {
+		name     string
+		row      int
+		col      int
+		expected float64
+		wantErr  bool
+	}{
+		{"valid get (1,0)", 1, 0, 3.3, false},
+		{"valid get (0,1)", 0, 1, 2.2, false},
+		{"negative row", -1, 0, 0, true},
+		{"negative col", 0, -1, 0, true},
+		{"row too large", 2, 0, 0, true},
+		{"col too large", 0, 2, 0, true},
 	}
 
-	// Test Set
-	m.Set(0, 1, 9.9)
-	val, _ = m.Get(0, 1)
-	if !almostEqual(val, 9.9) {
-		t.Errorf("Set result is not reflected. expected: 9.9, actual: %f", val)
+	for _, tt := range getTests {
+		t.Run(tt.name, func(t *testing.T) {
+			val, err := m.Get(tt.row, tt.col)
+			if tt.wantErr {
+				assert.Error(t, err)
+				return
+			}
+			assert.NoError(t, err)
+			assert.True(t, almostEqual(val, tt.expected))
+		})
+	}
+
+	setTests := []struct {
+		name    string
+		row     int
+		col     int
+		value   float64
+		wantErr bool
+	}{
+		{"valid set", 0, 1, 9.9, false},
+		{"negative row", -1, 0, 1.0, true},
+		{"negative col", 0, -1, 1.0, true},
+		{"row too large", 2, 0, 1.0, true},
+		{"col too large", 0, 2, 1.0, true},
+	}
+
+	for _, tt := range setTests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := m.Set(tt.row, tt.col, tt.value)
+			if tt.wantErr {
+				assert.Error(t, err)
+				return
+			}
+			assert.NoError(t, err)
+			val, _ := m.Get(tt.row, tt.col)
+			assert.True(t, almostEqual(val, tt.value))
+		})
 	}
 }
 
-// TestMatrixAdd tests the matrix addition method.
+// TestMatrixAdd tests the matrix addition method with table-driven tests.
 func TestMatrixAdd(t *testing.T) {
-	m1, _ := linalg.NewMatrix([][]float64{{1, 2}, {3, 4}})
-	m2, _ := linalg.NewMatrix([][]float64{{5, 6}, {7, 8}})
-	expected, _ := linalg.NewMatrix([][]float64{{6, 8}, {10, 12}})
+	tests := []struct {
+		name     string
+		m1       func() linalg.Matrix
+		m2       func() linalg.Matrix
+		expected func() linalg.Matrix
+		wantErr  bool
+	}{
+		{
+			name:     "valid 2x2 addition",
+			m1:       func() linalg.Matrix { m, _ := linalg.NewMatrix([][]float64{{1, 2}, {3, 4}}); return m },
+			m2:       func() linalg.Matrix { m, _ := linalg.NewMatrix([][]float64{{5, 6}, {7, 8}}); return m },
+			expected: func() linalg.Matrix { m, _ := linalg.NewMatrix([][]float64{{6, 8}, {10, 12}}); return m },
+			wantErr:  false,
+		},
+		{
+			name:    "dimension mismatch",
+			m1:      func() linalg.Matrix { m, _ := linalg.NewMatrix([][]float64{{1, 2}, {3, 4}}); return m },
+			m2:      func() linalg.Matrix { m, _ := linalg.NewMatrix([][]float64{{1, 2, 3}}); return m },
+			wantErr: true,
+		},
+	}
 
-	result, _ := m1.Add(m2)
-	if !testMatricesEqual(result, expected) {
-		t.Errorf("Add result differs from expected. expected: %v\nactual: %v", expected.Data, result.Data)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m1 := tt.m1()
+			m2 := tt.m2()
+			result, err := m1.Add(m2)
+			if tt.wantErr {
+				assert.Error(t, err)
+				return
+			}
+			assert.NoError(t, err)
+			assert.True(t, testMatricesEqual(result, tt.expected()))
+		})
 	}
 }
 
-// TestMatrixMultiply tests the matrix multiplication method.
+// TestMatrixSubtract tests the matrix subtraction method with table-driven tests.
+func TestMatrixSubtract(t *testing.T) {
+	tests := []struct {
+		name     string
+		m1       func() linalg.Matrix
+		m2       func() linalg.Matrix
+		expected func() linalg.Matrix
+		wantErr  bool
+	}{
+		{
+			name:     "valid 2x2 subtraction",
+			m1:       func() linalg.Matrix { m, _ := linalg.NewMatrix([][]float64{{5, 6}, {7, 8}}); return m },
+			m2:       func() linalg.Matrix { m, _ := linalg.NewMatrix([][]float64{{1, 2}, {3, 4}}); return m },
+			expected: func() linalg.Matrix { m, _ := linalg.NewMatrix([][]float64{{4, 4}, {4, 4}}); return m },
+			wantErr:  false,
+		},
+		{
+			name:    "dimension mismatch",
+			m1:      func() linalg.Matrix { m, _ := linalg.NewMatrix([][]float64{{5, 6}, {7, 8}}); return m },
+			m2:      func() linalg.Matrix { m, _ := linalg.NewMatrix([][]float64{{1, 2, 3}}); return m },
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m1 := tt.m1()
+			m2 := tt.m2()
+			result, err := m1.Subtract(m2)
+			if tt.wantErr {
+				assert.Error(t, err)
+				return
+			}
+			assert.NoError(t, err)
+			assert.True(t, testMatricesEqual(result, tt.expected()))
+		})
+	}
+}
+
+// TestMatrixMultiply tests the matrix multiplication method with table-driven tests.
 func TestMatrixMultiply(t *testing.T) {
-	// A (2x3) * B (3x2) = C (2x2)
-	m_A, _ := linalg.NewMatrix([][]float64{{1, 2, 3}, {4, 5, 6}})
-	m_B, _ := linalg.NewMatrix([][]float64{{7, 8}, {9, 10}, {11, 12}})
-	expected, _ := linalg.NewMatrix([][]float64{{58, 64}, {139, 154}})
+	tests := []struct {
+		name     string
+		m1       func() linalg.Matrix
+		m2       func() linalg.Matrix
+		expected func() linalg.Matrix
+		wantErr  bool
+	}{
+		{
+			name:     "valid 2x3 * 3x2 multiplication",
+			m1:       func() linalg.Matrix { m, _ := linalg.NewMatrix([][]float64{{1, 2, 3}, {4, 5, 6}}); return m },
+			m2:       func() linalg.Matrix { m, _ := linalg.NewMatrix([][]float64{{7, 8}, {9, 10}, {11, 12}}); return m },
+			expected: func() linalg.Matrix { m, _ := linalg.NewMatrix([][]float64{{58, 64}, {139, 154}}); return m },
+			wantErr:  false,
+		},
+		{
+			name:    "incompatible dimensions",
+			m1:      func() linalg.Matrix { m, _ := linalg.NewMatrix([][]float64{{1, 2}, {3, 4}}); return m },
+			m2:      func() linalg.Matrix { m, _ := linalg.NewMatrix([][]float64{{1, 2, 3}}); return m },
+			wantErr: true,
+		},
+	}
 
-	result, _ := m_A.Multiply(m_B)
-	if !testMatricesEqual(result, expected) {
-		t.Errorf("Multiply result differs from expected.\nexpected: %v\nactual: %v", expected.Data, result.Data)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m1 := tt.m1()
+			m2 := tt.m2()
+			result, err := m1.Multiply(m2)
+			if tt.wantErr {
+				assert.Error(t, err)
+				return
+			}
+			assert.NoError(t, err)
+			assert.True(t, testMatricesEqual(result, tt.expected()))
+		})
 	}
 }
 
-// TestMatrixTranspose tests the matrix transpose method.
+// TestMatrixScale tests the matrix scaling method with table-driven tests.
+func TestMatrixScale(t *testing.T) {
+	tests := []struct {
+		name     string
+		matrix   func() linalg.Matrix
+		scalar   float64
+		expected func() linalg.Matrix
+	}{
+		{
+			name:     "scale by 2.5",
+			matrix:   func() linalg.Matrix { m, _ := linalg.NewMatrix([][]float64{{1, 2}, {3, 4}}); return m },
+			scalar:   2.5,
+			expected: func() linalg.Matrix { m, _ := linalg.NewMatrix([][]float64{{2.5, 5}, {7.5, 10}}); return m },
+		},
+		{
+			name:     "scale by zero",
+			matrix:   func() linalg.Matrix { m, _ := linalg.NewMatrix([][]float64{{1, 2}, {3, 4}}); return m },
+			scalar:   0,
+			expected: func() linalg.Matrix { m, _ := linalg.NewMatrix([][]float64{{0, 0}, {0, 0}}); return m },
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := tt.matrix()
+			result := m.Scale(tt.scalar)
+			assert.True(t, testMatricesEqual(result, tt.expected()))
+		})
+	}
+}
+
+// TestMatrixTranspose tests the matrix transpose method with table-driven tests.
 func TestMatrixTranspose(t *testing.T) {
-	// 2x3 matrix
-	m, _ := linalg.NewMatrix([][]float64{{1, 2, 3}, {4, 5, 6}})
-	// Expected 3x2 matrix
-	expected, _ := linalg.NewMatrix([][]float64{{1, 4}, {2, 5}, {3, 6}})
-
-	result := m.Transpose()
-
-	if !testMatricesEqual(result, expected) {
-		t.Errorf("Transpose result differs from expected.\nexpected: %v\nactual: %v", expected.Data, result.Data)
+	tests := []struct {
+		name      string
+		matrix    func() linalg.Matrix
+		expected  func() linalg.Matrix
+		expectRow int
+		expectCol int
+	}{
+		{
+			name:      "2x3 transpose",
+			matrix:    func() linalg.Matrix { m, _ := linalg.NewMatrix([][]float64{{1, 2, 3}, {4, 5, 6}}); return m },
+			expected:  func() linalg.Matrix { m, _ := linalg.NewMatrix([][]float64{{1, 4}, {2, 5}, {3, 6}}); return m },
+			expectRow: 3,
+			expectCol: 2,
+		},
+		{
+			name:      "square matrix transpose",
+			matrix:    func() linalg.Matrix { m, _ := linalg.NewMatrix([][]float64{{1, 2}, {3, 4}}); return m },
+			expected:  func() linalg.Matrix { m, _ := linalg.NewMatrix([][]float64{{1, 3}, {2, 4}}); return m },
+			expectRow: 2,
+			expectCol: 2,
+		},
 	}
-	if result.Rows != 3 || result.Cols != 2 {
-		t.Errorf("transposed size is incorrect. expected: 3x2, actual: %dx%d", result.Rows, result.Cols)
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := tt.matrix()
+			result := m.Transpose()
+			assert.True(t, testMatricesEqual(result, tt.expected()))
+			assert.Equal(t, tt.expectRow, result.Rows())
+			assert.Equal(t, tt.expectCol, result.Cols())
+		})
 	}
 }
 
-// TestMatrixDeterminant tests the matrix determinant method.
+// TestMatrixDeterminant tests the matrix determinant method with table-driven tests.
 func TestMatrixDeterminant(t *testing.T) {
-	// 2x2: det(A) = 4*6 - 7*2 = 10
-	m2x2, _ := linalg.NewMatrix([][]float64{{4, 7}, {2, 6}})
-	det2x2, _ := m2x2.Determinant()
-	if !almostEqual(det2x2, 10.0) {
-		t.Errorf("2x2 determinant result is incorrect. expected: 10.0, actual: %f", det2x2)
+	tests := []struct {
+		name     string
+		matrix   func() linalg.Matrix
+		expected float64
+		wantErr  bool
+	}{
+		{
+			name:     "2x2 determinant",
+			matrix:   func() linalg.Matrix { m, _ := linalg.NewMatrix([][]float64{{4, 7}, {2, 6}}); return m },
+			expected: 10.0,
+			wantErr:  false,
+		},
+		{
+			name:     "3x3 determinant",
+			matrix:   func() linalg.Matrix { m, _ := linalg.NewMatrix([][]float64{{1, 2, 3}, {4, 5, 6}, {7, 8, 0}}); return m },
+			expected: 27.0,
+			wantErr:  false,
+		},
+		{
+			name:     "1x1 determinant",
+			matrix:   func() linalg.Matrix { m, _ := linalg.NewMatrix([][]float64{{5}}); return m },
+			expected: 5.0,
+			wantErr:  false,
+		},
+		{
+			name:     "singular 2x2 determinant",
+			matrix:   func() linalg.Matrix { m, _ := linalg.NewMatrix([][]float64{{1, 2}, {2, 4}}); return m },
+			expected: 0.0,
+			wantErr:  false,
+		},
+		{
+			name: "4x4 determinant",
+			matrix: func() linalg.Matrix {
+				m, _ := linalg.NewMatrix([][]float64{
+					{1, 0, 2, -1},
+					{3, 0, 0, 5},
+					{2, 1, 4, -3},
+					{1, 0, 5, 0},
+				})
+				return m
+			},
+			expected: 30.0,
+			wantErr:  false,
+		},
+		{
+			name:    "non-square matrix",
+			matrix:  func() linalg.Matrix { m, _ := linalg.NewMatrix([][]float64{{1, 2, 3}, {4, 5, 6}}); return m },
+			wantErr: true,
+		},
 	}
 
-	// 3x3: det(A) = 27
-	m3x3, _ := linalg.NewMatrix([][]float64{{1, 2, 3}, {4, 5, 6}, {7, 8, 0}})
-	det3x3, _ := m3x3.Determinant()
-	if !almostEqual(det3x3, 27.0) {
-		t.Errorf("3x3 determinant result is incorrect. expected: 27.0, actual: %f", det3x3)
-	}
-
-	// Test non-square matrix
-	mNonSquare, _ := linalg.NewMatrix([][]float64{{1, 2, 3}, {4, 5, 6}})
-	_, err := mNonSquare.Determinant()
-	if err == nil {
-		t.Error("error was not returned for non-square matrix")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := tt.matrix()
+			det, err := m.Determinant()
+			if tt.wantErr {
+				assert.Error(t, err)
+				return
+			}
+			assert.NoError(t, err)
+			assert.True(t, almostEqual(det, tt.expected))
+		})
 	}
 }
 
-// TestMatrixInverse tests the matrix inverse calculation method.
+// TestMatrixInverse tests the matrix inverse calculation method with table-driven tests.
 func TestMatrixInverse(t *testing.T) {
-	// Normal 2x2 matrix (det=10)
-	m2x2, _ := linalg.NewMatrix([][]float64{{4, 7}, {2, 6}})
-	expected2x2, _ := linalg.NewMatrix([][]float64{{0.6, -0.7}, {-0.2, 0.4}})
-
-	inv2x2, _ := m2x2.Inverse()
-	if !testMatricesEqual(inv2x2, expected2x2) {
-		t.Errorf("2x2 Inverse result differs from expected.\nexpected: %v\nactual: %v", expected2x2.Data, inv2x2.Data)
+	tests := []struct {
+		name     string
+		matrix   func() linalg.Matrix
+		expected func() linalg.Matrix
+		wantErr  bool
+	}{
+		{
+			name:     "2x2 inverse",
+			matrix:   func() linalg.Matrix { m, _ := linalg.NewMatrix([][]float64{{4, 7}, {2, 6}}); return m },
+			expected: func() linalg.Matrix { m, _ := linalg.NewMatrix([][]float64{{0.6, -0.7}, {-0.2, 0.4}}); return m },
+			wantErr:  false,
+		},
+		{
+			name:    "singular matrix",
+			matrix:  func() linalg.Matrix { m, _ := linalg.NewMatrix([][]float64{{2, 4}, {1, 2}}); return m },
+			wantErr: true,
+		},
 	}
 
-	// Verification: check if A * A_inv equals identity matrix I
-	product, _ := m2x2.Multiply(inv2x2)
-	identity2x2, _ := linalg.NewMatrix([][]float64{{1.0, 0.0}, {0.0, 1.0}})
-	if !testMatricesEqual(product, identity2x2) {
-		t.Errorf("2x2 Inverse verification (A * A_inv) failed. result: %v", product.Data)
-	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := tt.matrix()
+			inv, err := m.Inverse()
+			if tt.wantErr {
+				assert.Error(t, err)
+				return
+			}
+			assert.NoError(t, err)
+			assert.True(t, testMatricesEqual(inv, tt.expected()))
 
-	// Test singular matrix (inverse does not exist)
-	singularM, _ := linalg.NewMatrix([][]float64{{2, 4}, {1, 2}})
-	_, err := singularM.Inverse()
-	if err == nil {
-		t.Error("error was not returned for singular matrix")
+			// Verification: check if A * A_inv equals identity matrix
+			product, _ := m.Multiply(inv)
+			identity, _ := linalg.NewMatrix([][]float64{{1.0, 0.0}, {0.0, 1.0}})
+			assert.True(t, testMatricesEqual(product, identity))
+		})
 	}
 }
 
 // TestMatrixSpecialTypes tests the diagonal, symmetric, and triangular matrix detection methods.
 func TestMatrixSpecialTypes(t *testing.T) {
-	// 1. Diagonal matrix
-	diagM, _ := linalg.NewMatrix([][]float64{{1, 0}, {0, 2}})
-	nonDiagM, _ := linalg.NewMatrix([][]float64{{1, 1}, {0, 2}})
-	if !diagM.IsDiagonal() {
-		t.Error("IsDiagonal: could not correctly identify diagonal matrix")
-	}
-	if nonDiagM.IsDiagonal() {
-		t.Error("IsDiagonal: incorrectly identified non-diagonal matrix")
+	tests := []struct {
+		name        string
+		matrix      func() linalg.Matrix
+		isDiagonal  bool
+		isSymmetric bool
+		isUpperTri  bool
+		isLowerTri  bool
+	}{
+		{
+			name:        "diagonal matrix",
+			matrix:      func() linalg.Matrix { m, _ := linalg.NewMatrix([][]float64{{1, 0}, {0, 2}}); return m },
+			isDiagonal:  true,
+			isSymmetric: true,
+			isUpperTri:  true,
+			isLowerTri:  true,
+		},
+		{
+			name:        "symmetric matrix",
+			matrix:      func() linalg.Matrix { m, _ := linalg.NewMatrix([][]float64{{1, 2}, {2, 3}}); return m },
+			isDiagonal:  false,
+			isSymmetric: true,
+			isUpperTri:  false,
+			isLowerTri:  false,
+		},
+		{
+			name:        "upper triangular matrix",
+			matrix:      func() linalg.Matrix { m, _ := linalg.NewMatrix([][]float64{{1, 2}, {0, 3}}); return m },
+			isDiagonal:  false,
+			isSymmetric: false,
+			isUpperTri:  true,
+			isLowerTri:  false,
+		},
+		{
+			name:        "lower triangular matrix",
+			matrix:      func() linalg.Matrix { m, _ := linalg.NewMatrix([][]float64{{1, 0}, {2, 3}}); return m },
+			isDiagonal:  false,
+			isSymmetric: false,
+			isUpperTri:  false,
+			isLowerTri:  true,
+		},
+		{
+			name:        "non-special matrix",
+			matrix:      func() linalg.Matrix { m, _ := linalg.NewMatrix([][]float64{{1, 2}, {3, 4}}); return m },
+			isDiagonal:  false,
+			isSymmetric: false,
+			isUpperTri:  false,
+			isLowerTri:  false,
+		},
+		{
+			name:        "non-square matrix",
+			matrix:      func() linalg.Matrix { m, _ := linalg.NewMatrix([][]float64{{1, 2, 3}, {4, 5, 6}}); return m },
+			isDiagonal:  false,
+			isSymmetric: false,
+			isUpperTri:  false,
+			isLowerTri:  false,
+		},
 	}
 
-	// 2. Symmetric matrix
-	symM, _ := linalg.NewMatrix([][]float64{{1, 2}, {2, 3}})
-	nonSymM, _ := linalg.NewMatrix([][]float64{{1, 2}, {3, 4}})
-	if !symM.IsSymmetric() {
-		t.Error("IsSymmetric: could not correctly identify symmetric matrix")
-	}
-	if nonSymM.IsSymmetric() {
-		t.Error("IsSymmetric: incorrectly identified non-symmetric matrix")
-	}
-
-	// 3. Upper triangular matrix
-	upperM, _ := linalg.NewMatrix([][]float64{{1, 2}, {0, 3}})
-	if !upperM.IsUpperTriangular() {
-		t.Errorf("IsUpperTriangular: could not correctly identify upper triangular matrix")
-	}
-	if upperM.IsLowerTriangular() {
-		t.Errorf("IsLowerTriangular: incorrectly identified upper triangular matrix")
-	}
-
-	// 4. Lower triangular matrix
-	lowerM, _ := linalg.NewMatrix([][]float64{{1, 0}, {2, 3}})
-	if !lowerM.IsLowerTriangular() {
-		t.Errorf("IsLowerTriangular: could not correctly identify lower triangular matrix")
-	}
-	if lowerM.IsUpperTriangular() {
-		t.Errorf("IsUpperTriangular: incorrectly identified lower triangular matrix")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := tt.matrix()
+			assert.Equal(t, tt.isDiagonal, m.IsDiagonal())
+			assert.Equal(t, tt.isSymmetric, m.IsSymmetric())
+			assert.Equal(t, tt.isUpperTri, m.IsUpperTriangular())
+			assert.Equal(t, tt.isLowerTri, m.IsLowerTriangular())
+		})
 	}
 }
 
-// TestNewMatrixFromTensor tests the NewMatrixFromTensor function.
+// TestNewMatrixFromTensor tests the NewMatrixFromTensor function with table-driven tests.
 func TestNewMatrixFromTensor(t *testing.T) {
-	// Test successful conversion
-	data := []float64{1, 2, 3, 4, 5, 6}
-	tensor, _ := linalg.NewTensorWithData(data, 2, 3)
-	m, err := linalg.NewMatrixFromTensor(tensor)
-	if err != nil {
-		t.Fatalf("error occurred in NewMatrixFromTensor: %v", err)
+	tests := []struct {
+		name     string
+		tensor   func() *linalg.Tensor
+		expected func() linalg.Matrix
+		wantErr  bool
+	}{
+		{
+			name: "valid 2x3 tensor conversion",
+			tensor: func() *linalg.Tensor {
+				data := []float64{1, 2, 3, 4, 5, 6}
+				tensor, _ := linalg.NewTensorWithData(data, 2, 3)
+				return tensor
+			},
+			expected: func() linalg.Matrix { m, _ := linalg.NewMatrix([][]float64{{1, 2, 3}, {4, 5, 6}}); return m },
+			wantErr:  false,
+		},
+		{
+			name: "non-matrix tensor (1D)",
+			tensor: func() *linalg.Tensor {
+				tensor, _ := linalg.NewTensorWithData([]float64{1, 2, 3}, 3)
+				return tensor
+			},
+			wantErr: true,
+		},
 	}
 
-	if m.Rows != 2 || m.Cols != 3 {
-		t.Errorf("matrix size differs from expected. expected: 2x3, actual: %dx%d", m.Rows, m.Cols)
-	}
-
-	// Verify data
-	expectedData := [][]float64{{1, 2, 3}, {4, 5, 6}}
-	for i := 0; i < 2; i++ {
-		for j := 0; j < 3; j++ {
-			val, _ := m.Get(i, j)
-			if !almostEqual(val, expectedData[i][j]) {
-				t.Errorf("matrix element[%d,%d] differs from expected. expected: %f, actual: %f", i, j, expectedData[i][j], val)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m, err := linalg.NewMatrixFromTensor(tt.tensor())
+			if tt.wantErr {
+				assert.Error(t, err)
+				return
 			}
-		}
-	}
-
-	// Test error case: non-matrix tensor
-	tensor1d, _ := linalg.NewTensorWithData([]float64{1, 2, 3}, 3)
-	_, err = linalg.NewMatrixFromTensor(tensor1d)
-	if err == nil {
-		t.Error("error was not returned for non-matrix tensor")
+			assert.NoError(t, err)
+			assert.True(t, testMatricesEqual(m, tt.expected()))
+		})
 	}
 }
 
-// TestNewZeroMatrix tests the NewZeroMatrix function.
+// TestNewZeroMatrix tests the NewZeroMatrix function with table-driven tests.
 func TestNewZeroMatrix(t *testing.T) {
-	m := linalg.NewZeroMatrix(3, 4)
-
-	if m.Rows != 3 || m.Cols != 4 {
-		t.Errorf("matrix size differs from expected. expected: 3x4, actual: %dx%d", m.Rows, m.Cols)
+	tests := []struct {
+		name string
+		rows int
+		cols int
+	}{
+		{"3x4 zero matrix", 3, 4},
+		{"2x2 zero matrix", 2, 2},
+		{"1x1 zero matrix", 1, 1},
 	}
 
-	// Verify all elements are zero
-	for i := 0; i < 3; i++ {
-		for j := 0; j < 4; j++ {
-			val, _ := m.Get(i, j)
-			if !almostEqual(val, 0.0) {
-				t.Errorf("zero matrix element[%d,%d] should be 0.0, actual: %f", i, j, val)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := linalg.NewZeroMatrix(tt.rows, tt.cols)
+			assert.Equal(t, tt.rows, m.Rows())
+			assert.Equal(t, tt.cols, m.Cols())
+
+			// Verify all elements are zero
+			for i := 0; i < tt.rows; i++ {
+				for j := 0; j < tt.cols; j++ {
+					val, _ := m.Get(i, j)
+					assert.True(t, almostEqual(val, 0.0))
+				}
 			}
-		}
+		})
 	}
 }
 
-// TestNewIdentityMatrix tests the NewIdentityMatrix function.
+// TestNewIdentityMatrix tests the NewIdentityMatrix function with table-driven tests.
 func TestNewIdentityMatrix(t *testing.T) {
-	m := linalg.NewIdentityMatrix(3)
-
-	if m.Rows != 3 || m.Cols != 3 {
-		t.Errorf("identity matrix size differs from expected. expected: 3x3, actual: %dx%d", m.Rows, m.Cols)
+	tests := []struct {
+		name string
+		size int
+	}{
+		{"3x3 identity", 3},
+		{"2x2 identity", 2},
+		{"1x1 identity", 1},
 	}
 
-	// Verify diagonal elements are 1 and off-diagonal elements are 0
-	for i := 0; i < 3; i++ {
-		for j := 0; j < 3; j++ {
-			val, _ := m.Get(i, j)
-			expected := 0.0
-			if i == j {
-				expected = 1.0
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := linalg.NewIdentityMatrix(tt.size)
+			assert.Equal(t, tt.size, m.Rows())
+			assert.Equal(t, tt.size, m.Cols())
+
+			// Verify diagonal elements are 1 and off-diagonal elements are 0
+			for i := 0; i < tt.size; i++ {
+				for j := 0; j < tt.size; j++ {
+					val, _ := m.Get(i, j)
+					expected := 0.0
+					if i == j {
+						expected = 1.0
+					}
+					assert.True(t, almostEqual(val, expected))
+				}
 			}
-			if !almostEqual(val, expected) {
-				t.Errorf("identity matrix element[%d,%d] differs from expected. expected: %f, actual: %f", i, j, expected, val)
-			}
-		}
+		})
 	}
 }
 
-// TestMatrixSubtract tests the matrix subtraction method.
-func TestMatrixSubtract(t *testing.T) {
-	m1, _ := linalg.NewMatrix([][]float64{{5, 6}, {7, 8}})
-	m2, _ := linalg.NewMatrix([][]float64{{1, 2}, {3, 4}})
-	expected, _ := linalg.NewMatrix([][]float64{{4, 4}, {4, 4}})
-
-	result, err := m1.Subtract(m2)
-	if err != nil {
-		t.Fatalf("error occurred in Subtract: %v", err)
-	}
-
-	if !testMatricesEqual(result, expected) {
-		t.Errorf("Subtract result differs from expected. expected: %v\nactual: %v", expected.Data, result.Data)
-	}
-
-	// Test dimension mismatch
-	m3, _ := linalg.NewMatrix([][]float64{{1, 2, 3}})
-	_, err = m1.Subtract(m3)
-	if err == nil {
-		t.Error("error was not returned for dimension mismatch")
-	}
-}
-
-// TestMatrixScale tests the matrix scaling method.
-func TestMatrixScale(t *testing.T) {
-	m, _ := linalg.NewMatrix([][]float64{{1, 2}, {3, 4}})
-	expected, _ := linalg.NewMatrix([][]float64{{2.5, 5}, {7.5, 10}})
-
-	result := m.Scale(2.5)
-
-	if !testMatricesEqual(result, expected) {
-		t.Errorf("Scale result differs from expected. expected: %v\nactual: %v", expected.Data, result.Data)
-	}
-
-	// Test scaling by zero
-	zeroScaled := m.Scale(0)
-	expectedZero, _ := linalg.NewMatrix([][]float64{{0, 0}, {0, 0}})
-
-	if !testMatricesEqual(zeroScaled, expectedZero) {
-		t.Errorf("Scale by zero result differs from expected. expected: %v\nactual: %v", expectedZero.Data, zeroScaled.Data)
-	}
-}
-
-// TestMatrixClone tests the Clone method.
+// TestMatrixClone tests the Clone method with table-driven tests.
 func TestMatrixClone(t *testing.T) {
-	original, _ := linalg.NewMatrix([][]float64{{1, 2}, {3, 4}})
-	cloned := original.Clone()
-
-	// Check if clone has same data
-	if !testMatricesEqual(original, cloned) {
-		t.Errorf("cloned matrix differs from original")
+	tests := []struct {
+		name   string
+		matrix func() linalg.Matrix
+	}{
+		{
+			name:   "2x2 matrix clone",
+			matrix: func() linalg.Matrix { m, _ := linalg.NewMatrix([][]float64{{1, 2}, {3, 4}}); return m },
+		},
+		{
+			name:   "3x2 matrix clone",
+			matrix: func() linalg.Matrix { m, _ := linalg.NewMatrix([][]float64{{1, 2}, {3, 4}, {5, 6}}); return m },
+		},
 	}
 
-	// Verify independence (modifying one should not affect the other)
-	original.Set(0, 0, 99.0)
-	clonedVal, _ := cloned.Get(0, 0)
-	if almostEqual(clonedVal, 99.0) {
-		t.Error("clone is not independent. original modification affects clone")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			original := tt.matrix()
+			cloned := original.Clone()
+
+			// Check if clone has same data
+			assert.True(t, testMatricesEqual(original, cloned))
+
+			// Verify independence
+			original.Set(0, 0, 99.0)
+			clonedVal, _ := cloned.Get(0, 0)
+			assert.False(t, almostEqual(clonedVal, 99.0))
+		})
 	}
 }
 
-// TestMatrixAsTensor tests the AsTensor method.
+// TestMatrixAsTensor tests the AsTensor method with table-driven tests.
 func TestMatrixAsTensor(t *testing.T) {
-	m, _ := linalg.NewMatrix([][]float64{{1, 2}, {3, 4}})
-	tensor := m.AsTensor()
-
-	// Check tensor properties
-	if tensor.Rank != 2 {
-		t.Errorf("tensor rank differs from expected. expected: 2, actual: %d", tensor.Rank)
+	tests := []struct {
+		name     string
+		matrix   func() linalg.Matrix
+		expected []float64
+	}{
+		{
+			name:     "2x2 matrix to tensor",
+			matrix:   func() linalg.Matrix { m, _ := linalg.NewMatrix([][]float64{{1, 2}, {3, 4}}); return m },
+			expected: []float64{1, 2, 3, 4},
+		},
+		{
+			name:     "1x3 matrix to tensor",
+			matrix:   func() linalg.Matrix { m, _ := linalg.NewMatrix([][]float64{{1, 2, 3}}); return m },
+			expected: []float64{1, 2, 3},
+		},
 	}
 
-	if len(tensor.Shape) != 2 || tensor.Shape[0] != 2 || tensor.Shape[1] != 2 {
-		t.Errorf("tensor shape differs from expected. expected: [2, 2], actual: %v", tensor.Shape)
-	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := tt.matrix()
+			tensor := m.AsTensor()
 
-	// Check data
-	expected := []float64{1, 2, 3, 4}
-	for i, expectedVal := range expected {
-		if !almostEqual(tensor.Data[i], expectedVal) {
-			t.Errorf("tensor data[%d] differs from expected. expected: %f, actual: %f", i, expectedVal, tensor.Data[i])
-		}
-	}
+			// Check tensor properties
+			assert.Equal(t, 2, tensor.Rank())
+			assert.Equal(t, []int{m.Rows(), m.Cols()}, tensor.Shape())
 
-	// Verify independence
-	tensor.Set(99.0, 0, 0)
-	originalVal, _ := m.Get(0, 0)
-	if almostEqual(originalVal, 99.0) {
-		t.Error("tensor is not independent. tensor modification affects original matrix")
-	}
-}
+			// Check data
+			for i, expectedVal := range tt.expected {
+				assert.True(t, almostEqual(tensor.Data()[i], expectedVal))
+			}
 
-// TestNewMatrixErrors tests error cases in matrix creation.
-func TestNewMatrixErrors(t *testing.T) {
-	// Test empty data
-	_, err := linalg.NewMatrix([][]float64{})
-	if err == nil {
-		t.Error("error was not returned for empty data")
-	}
-
-	// Test inconsistent row lengths
-	_, err = linalg.NewMatrix([][]float64{{1, 2}, {3, 4, 5}})
-	if err == nil {
-		t.Error("error was not returned for inconsistent row lengths")
-	}
-}
-
-// TestMatrixGetSetErrors tests error cases in Get and Set methods.
-func TestMatrixGetSetErrors(t *testing.T) {
-	m, _ := linalg.NewMatrix([][]float64{{1, 2}, {3, 4}})
-
-	// Test out-of-bounds Get
-	_, err := m.Get(-1, 0)
-	if err == nil {
-		t.Error("error was not returned for out-of-bounds Get (negative row)")
-	}
-
-	_, err = m.Get(0, -1)
-	if err == nil {
-		t.Error("error was not returned for out-of-bounds Get (negative column)")
-	}
-
-	_, err = m.Get(2, 0)
-	if err == nil {
-		t.Error("error was not returned for out-of-bounds Get (row too large)")
-	}
-
-	_, err = m.Get(0, 2)
-	if err == nil {
-		t.Error("error was not returned for out-of-bounds Get (column too large)")
-	}
-
-	// Test out-of-bounds Set
-	err = m.Set(-1, 0, 1.0)
-	if err == nil {
-		t.Error("error was not returned for out-of-bounds Set (negative row)")
-	}
-
-	err = m.Set(0, -1, 1.0)
-	if err == nil {
-		t.Error("error was not returned for out-of-bounds Set (negative column)")
-	}
-
-	err = m.Set(2, 0, 1.0)
-	if err == nil {
-		t.Error("error was not returned for out-of-bounds Set (row too large)")
-	}
-
-	err = m.Set(0, 2, 1.0)
-	if err == nil {
-		t.Error("error was not returned for out-of-bounds Set (column too large)")
-	}
-}
-
-// TestMatrixMultiplyErrors tests error cases in matrix multiplication.
-func TestMatrixMultiplyErrors(t *testing.T) {
-	m1, _ := linalg.NewMatrix([][]float64{{1, 2}, {3, 4}})
-	m2, _ := linalg.NewMatrix([][]float64{{1, 2, 3}})
-
-	_, err := m1.Multiply(m2)
-	if err == nil {
-		t.Error("error was not returned for incompatible matrix multiplication")
-	}
-}
-
-// TestMatrixAddErrors tests error cases in matrix addition.
-func TestMatrixAddErrors(t *testing.T) {
-	m1, _ := linalg.NewMatrix([][]float64{{1, 2}, {3, 4}})
-	m2, _ := linalg.NewMatrix([][]float64{{1, 2, 3}})
-
-	_, err := m1.Add(m2)
-	if err == nil {
-		t.Error("error was not returned for incompatible matrix addition")
-	}
-}
-
-// TestMatrixSpecialTypesNonSquare tests special type checks on non-square matrices.
-func TestMatrixSpecialTypesNonSquare(t *testing.T) {
-	m, _ := linalg.NewMatrix([][]float64{{1, 2, 3}, {4, 5, 6}})
-
-	if m.IsDiagonal() {
-		t.Error("IsDiagonal: non-square matrix should not be diagonal")
-	}
-
-	if m.IsSymmetric() {
-		t.Error("IsSymmetric: non-square matrix should not be symmetric")
-	}
-
-	if m.IsUpperTriangular() {
-		t.Error("IsUpperTriangular: non-square matrix should not be upper triangular")
-	}
-
-	if m.IsLowerTriangular() {
-		t.Error("IsLowerTriangular: non-square matrix should not be lower triangular")
-	}
-}
-
-// TestMatrixDeterminantExtended tests additional determinant cases.
-func TestMatrixDeterminantExtended(t *testing.T) {
-	// Test 1x1 matrix
-	m1x1, _ := linalg.NewMatrix([][]float64{{5}})
-	det1x1, _ := m1x1.Determinant()
-	if !almostEqual(det1x1, 5.0) {
-		t.Errorf("1x1 determinant result is incorrect. expected: 5.0, actual: %f", det1x1)
-	}
-
-	// Test singular 2x2 matrix (determinant = 0)
-	singular2x2, _ := linalg.NewMatrix([][]float64{{1, 2}, {2, 4}})
-	detSingular, _ := singular2x2.Determinant()
-	if !almostEqual(detSingular, 0.0) {
-		t.Errorf("singular 2x2 determinant result is incorrect. expected: 0.0, actual: %f", detSingular)
-	}
-
-	// Test 4x4 matrix (tests recursive cofactor expansion)
-	m4x4, _ := linalg.NewMatrix([][]float64{
-		{1, 0, 2, -1},
-		{3, 0, 0, 5},
-		{2, 1, 4, -3},
-		{1, 0, 5, 0},
-	})
-	det4x4, _ := m4x4.Determinant()
-	// Expected determinant calculated manually: 30
-	if !almostEqual(det4x4, 30.0) {
-		t.Errorf("4x4 determinant result is incorrect. expected: 30.0, actual: %f", det4x4)
+			// Verify independence
+			tensor.Set(99.0, 0, 0)
+			originalVal, _ := m.Get(0, 0)
+			assert.False(t, almostEqual(originalVal, 99.0))
+		})
 	}
 }
