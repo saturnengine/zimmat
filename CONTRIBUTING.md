@@ -9,12 +9,13 @@ This document explains how to set up your local development environment and foll
 
 You will need the following tools installed:
 
-| Tool                                                     | Description                                                                             | Installation                                           |
-| :------------------------------------------------------- | :-------------------------------------------------------------------------------------- | :----------------------------------------------------- |
-| **[Go](https://go.dev/dl/)**                             | The main programming language for the engine.                                           | `brew install go`                                      |
-| **[Lefthook](https://github.com/evilmartians/lefthook)** | **Git hooks manager.** Automatically runs checks _before_ commits and pushes.           | `brew install lefthook`                                |
-| **[Staticcheck](https://staticcheck.io/)**               | **Go static analysis tool.** Catches bugs, suspicious constructs, and style violations. | `go install honnef.co/go/tools/cmd/staticcheck@latest` |
-| **[Typos](https://github.com/crate-ci/typos)**           | **Spell checker.** Ensures documentation and code comments are free of misspellings.    | `brew install typos-cli`                               |
+| Tool                                                     | Description                                                                                                       | Installation                                                   |
+| :------------------------------------------------------- | :---------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------- |
+| **[Go](https://go.dev/dl/)**                             | The main programming language for the engine.                                                                     | `brew install go`                                              |
+| **[Lefthook](https://github.com/evilmartians/lefthook)** | **Git hooks manager.** Automatically runs checks _before_ commits and pushes.                                     | `brew install lefthook`                                        |
+| **[Staticcheck](https://staticcheck.io/)**               | **Go static analysis tool.** Catches bugs, suspicious constructs, and style violations.                           | `go install honnef.co/go/tools/cmd/staticcheck@latest`         |
+| **[Typos](https://github.com/crate-ci/typos)**           | **Spell checker.** Ensures documentation and code comments are free of misspellings.                              | `brew install typos-cli`                                       |
+| **[nocjk](https://github.com/aethiopicuschan/nocjk)**    | **CJK character detector.** Detects unintended use of CJK (Chinese, Japanese, Korean) characters in code or text. | `go install github.com/aethiopicuschan/nocjk/cmd/nocjk@latest` |
 
 ---
 
