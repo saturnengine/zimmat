@@ -333,8 +333,7 @@ func (v Vector) Set(index int, value float64) (err error) {
 	if err != nil {
 		return
 	}
-	// Update Data field (it's automatically updated since it's a reference, but explicitly ensure it)
-	v.Data = v.tensor.Data
+	// Data field is automatically updated since it's a reference to tensor.Data
 	return
 }
 

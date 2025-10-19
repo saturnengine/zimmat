@@ -199,8 +199,7 @@ func (m Matrix) Set(row, col int, val float64) (err error) {
 	if err != nil {
 		return
 	}
-	// Update Data field (it's automatically updated since it's a reference, but explicitly ensure it)
-	m.Data = m.tensor.Data
+	// Data field is automatically updated since it's a reference to tensor.Data
 	return
 }
 
