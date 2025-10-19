@@ -305,8 +305,8 @@ func (m Matrix) Determinant() (float64, error) {
 		d, _ := m.Get(1, 1)
 		return a*d - b*c, nil
 	}
-    
-    // 3x3以上は再帰的な余因子展開を使用（計算コストは高い）
+
+	// 3x3以上は再帰的な余因子展開を使用（計算コストは高い）
 	var det float64
 	for j := 0; j < n; j++ {
 		// i=0 の行について余因子展開
@@ -314,24 +314,24 @@ func (m Matrix) Determinant() (float64, error) {
 		if j%2 != 0 {
 			sign = -1.0
 		}
-        
-        // Minor行列の作成
-        minorData := make([][]float64, n-1)
-        for row := 1; row < n; row++ { // 0行目を除外
-            minorRow := make([]float64, 0, n-1)
-            for col := 0; col < n; col++ {
-                if col != j { // j列目を除外
-                    val, _ := m.Get(row, col)
-                    minorRow = append(minorRow, val)
-                }
-            }
-            minorData[row-1] = minorRow
-        }
-        
-        minorM, _ := NewMatrix(minorData) // Minor行列
-        minorDet, _ := minorM.Determinant()
-        
-        a0j, _ := m.Get(0, j)
+
+		// Minor行列の作成
+		minorData := make([][]float64, n-1)
+		for row := 1; row < n; row++ { // 0行目を除外
+			minorRow := make([]float64, 0, n-1)
+			for col := 0; col < n; col++ {
+				if col != j { // j列目を除外
+					val, _ := m.Get(row, col)
+					minorRow = append(minorRow, val)
+				}
+			}
+			minorData[row-1] = minorRow
+		}
+
+		minorM, _ := NewMatrix(minorData) // Minor行列
+		minorDet, _ := minorM.Determinant()
+
+		a0j, _ := m.Get(0, j)
 		det += sign * a0j * minorDet
 	}
 
