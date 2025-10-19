@@ -21,22 +21,6 @@ func TestInit(t *testing.T) {
 	// If we reach here without panic, the test passes
 }
 
-// TestCheckVersion tests the CheckVersion function.
-func TestCheckVersion(t *testing.T) {
-	version := zimmat.CheckVersion()
-
-	// Version should not be empty
-	if version == "" {
-		t.Error("CheckVersion() returned empty string")
-	}
-
-	// Version should match the expected format (we know it's "0.1.0" from the source)
-	expectedVersion := "0.1.0"
-	if version != expectedVersion {
-		t.Errorf("CheckVersion() returned unexpected version. expected: %s, actual: %s", expectedVersion, version)
-	}
-}
-
 // TestVersion tests the Version constant.
 func TestVersion(t *testing.T) {
 	// Test that Version constant is accessible and has expected value

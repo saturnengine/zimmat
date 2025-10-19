@@ -67,21 +67,6 @@ func Init() {
 	// Future: environment variable loading, hardware compatibility checks, etc.
 }
 
-// CheckVersion returns the current version string of the zimmat library.
-// This function is useful for runtime version verification and debugging.
-//
-// Returns:
-//   - A string representing the current library version (e.g., "0.1.0")
-//
-// Example:
-//
-//	version := zimmat.CheckVersion()
-//	fmt.Printf("Using zimmat version: %s\n", version)
-func CheckVersion() (version string) {
-	version = Version
-	return
-}
-
 /*
 Code from other files (e.g., linalg/vector.go) is used by importing as follows:
 
