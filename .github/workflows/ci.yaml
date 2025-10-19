@@ -52,3 +52,15 @@ jobs:
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
+
+  check-cjk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Detect CJK text
+        uses: aethiopicuschan/nocjk/actions/nocjk-action@v1.2.0
+        with:
+          ignore_chinese: false
+          ignore_japanese: false
+          ignore_korean: false
+          args: "."
