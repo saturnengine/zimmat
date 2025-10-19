@@ -5,146 +5,355 @@ import (
 	"math"
 )
 
-// Matrix は n x m の行列を表す汎用的な構造体です。
-// データは行優先（Row-major）で1次元スライスに格納されます。
+// Matrix represents an n×m matrix optimized for linear algebra operations.
+// It is implemented internally using a Tensor for consistency and performance.
+//
+// Matrix provides comprehensive functionality for matrix operations including
+// arithmetic, multiplication, transposition, determinant calculation, and inversion.
+//
+// Fields:
+//   - tensor: Internal 2-dimensional tensor
+//   - Data: Public field for compatibility (reference to tensor's Data)
+//   - Rows: Number of rows (n)
+//   - Cols: Number of columns (m)
+//
+// Example:
+//
+//	data := [][]float64{{1, 2}, {3, 4}}
+//	m, err := linalg.NewMatrix(data)
+//	if err != nil {
+//		log.Printf("Error creating matrix: %v", err)
+//		return
+//	}
+//	det, _ := m.Determinant() // Returns -2.0
 type Matrix struct {
-	Data []float64 // 行優先で格納された要素
-	Rows int       // 行数 (n)
-	Cols int       // 列数 (m)
+	tensor *Tensor   // Internal tensor (2-dimensional)
+	data   []float64 // Private field for compatibility (reference to tensor's Data)
+	rows   int       // Number of rows (n)
+	cols   int       // Number of columns (m)
 }
 
-// NewMatrix は多次元スライス [][]float64 から新しい Matrix を作成します。
-func NewMatrix(data [][]float64) (Matrix, error) {
+// Data returns the flattened data
+func (m *Matrix) Data() []float64 { return m.data }
+
+// Rows returns the number of rows
+func (m *Matrix) Rows() int { return m.rows }
+
+// Cols returns the number of columns
+func (m *Matrix) Cols() int { return m.cols }
+
+// NewMatrix creates a new Matrix from a 2D slice of float64 values.
+// Each inner slice represents a row of the matrix.
+//
+// Parameters:
+//   - data: 2D slice where data[i][j] represents the element at row i, column j
+//
+// Returns:
+//   - Matrix: The new matrix
+//   - error: Non-nil if data is empty or has inconsistent row lengths
+//
+// All rows must have the same number of columns.
+//
+// Example:
+//
+//	data := [][]float64{
+//		{1.0, 2.0, 3.0},
+//		{4.0, 5.0, 6.0},
+//	}
+//	m, err := linalg.NewMatrix(data) // Creates 2x3 matrix
+func NewMatrix(data [][]float64) (result Matrix, err error) {
 	if len(data) == 0 {
-		return Matrix{}, fmt.Errorf("入力データに行がありません")
+		err = fmt.Errorf("input data has no rows")
+		return
 	}
 
 	rows := len(data)
 	cols := len(data[0])
-	totalSize := rows * cols
 
-	flatData := make([]float64, 0, totalSize)
+	flatData := make([]float64, 0, rows*cols)
 
 	for i, rowData := range data {
 		if len(rowData) != cols {
-			return Matrix{}, fmt.Errorf("行 %d の列数が異なります: 期待値 %d, 実際 %d", i, cols, len(rowData))
+			err = fmt.Errorf("row %d has different column count: expected %d, actual %d", i, cols, len(rowData))
+			return
 		}
 		flatData = append(flatData, rowData...)
 	}
 
-	return Matrix{
-		Data: flatData,
-		Rows: rows,
-		Cols: cols,
-	}, nil
+	tensor, err := NewTensorWithData(flatData, rows, cols)
+	if err != nil {
+		err = fmt.Errorf("matrix creation error: %v", err)
+		return
+	}
+
+	result = Matrix{
+		tensor: tensor,
+		data:   tensor.Data(),
+		rows:   rows,
+		cols:   cols,
+	}
+	return
 }
 
-// Get は指定された i行 j列 の要素を返します。
-func (m Matrix) Get(row, col int) (float64, error) {
-	if row < 0 || row >= m.Rows || col < 0 || col >= m.Cols {
-		return 0, fmt.Errorf("インデックス (%d, %d) が行列の境界外です", row, col)
+// NewMatrixFromTensor creates a Matrix from an existing Tensor.
+// The tensor must be 2-dimensional (matrix).
+//
+// Parameters:
+//   - tensor: A 2-dimensional tensor to convert
+//
+// Returns:
+//   - Matrix: The new matrix
+//   - error: Non-nil if the tensor is not 2-dimensional
+//
+// Example:
+//
+//	t := linalg.NewTensor(2, 3) // 2x3 tensor
+//	m, err := linalg.NewMatrixFromTensor(t)
+//	if err != nil {
+//		log.Printf("Error creating matrix from tensor: %v", err)
+//		return
+//	}
+func NewMatrixFromTensor(tensor *Tensor) (result Matrix, err error) {
+	if !tensor.IsMatrix() {
+		err = fmt.Errorf("tensor with shape %v is not a matrix", tensor.Shape())
+		return
 	}
-	return m.Data[row*m.Cols+col], nil
+
+	result = Matrix{
+		tensor: tensor.Clone(),
+		data:   tensor.Data(),
+		rows:   tensor.Shape()[0],
+		cols:   tensor.Shape()[1],
+	}
+	return
 }
 
-// Set は指定された i行 j列 の要素を val で設定します。
-func (m Matrix) Set(row, col int, val float64) error {
-	if row < 0 || row >= m.Rows || col < 0 || col >= m.Cols {
-		return fmt.Errorf("インデックス (%d, %d) が行列の境界外です", row, col)
+// NewZeroMatrix creates a zero matrix (all elements are zero) with the specified dimensions.
+//
+// Parameters:
+//   - rows: Number of rows
+//   - cols: Number of columns
+//
+// Returns:
+//   - Matrix: A new zero matrix
+//
+// Example:
+//
+//	zeros := linalg.NewZeroMatrix(3, 4) // 3x4 matrix of zeros
+func NewZeroMatrix(rows, cols int) (result Matrix) {
+	tensor := NewTensor(rows, cols)
+	result = Matrix{
+		tensor: tensor,
+		data:   tensor.Data(),
+		rows:   rows,
+		cols:   cols,
 	}
-	m.Data[row*m.Cols+col] = val
-	return nil
+	return
 }
 
-// Add は現在の行列に別の行列を加算した新しい行列を返します。
-func (m Matrix) Add(other Matrix) (Matrix, error) {
-	if m.Rows != other.Rows || m.Cols != other.Cols {
-		return Matrix{}, fmt.Errorf("行列のサイズが異なります: %d x %d と %d x %d", m.Rows, m.Cols, other.Rows, other.Cols)
+// NewIdentityMatrix creates an identity matrix (1s on diagonal, 0s elsewhere) of the specified size.
+// Identity matrices are always square (n×n).
+//
+// Parameters:
+//   - size: The size of the square matrix (both rows and columns)
+//
+// Returns:
+//   - Matrix: A new identity matrix
+//
+// Example:
+//
+//	identity := linalg.NewIdentityMatrix(3) // 3x3 identity matrix
+func NewIdentityMatrix(size int) (result Matrix) {
+	result = NewZeroMatrix(size, size)
+	for i := 0; i < size; i++ {
+		result.Set(i, i, 1.0)
 	}
-
-	resultData := make([]float64, len(m.Data))
-	for i := range m.Data {
-		resultData[i] = m.Data[i] + other.Data[i]
-	}
-
-	return Matrix{Data: resultData, Rows: m.Rows, Cols: m.Cols}, nil
+	return
 }
 
-// Multiply は現在の行列（A）に別の行列（B）を乗算した新しい行列（C = A * B）を返します。
-func (m Matrix) Multiply(other Matrix) (Matrix, error) {
-	if m.Cols != other.Rows {
-		return Matrix{}, fmt.Errorf("行列の乗算ルールに違反します: Aの列数(%d) と Bの行数(%d) が一致しません", m.Cols, other.Rows)
-	}
-
-	resultRows := m.Rows
-	resultCols := other.Cols
-	resultData := make([]float64, resultRows*resultCols)
-
-	for i := 0; i < resultRows; i++ {
-		for j := 0; j < resultCols; j++ {
-			var sum float64
-			for k := 0; k < m.Cols; k++ {
-				sum += m.Data[i*m.Cols+k] * other.Data[k*other.Cols+j]
-			}
-			resultData[i*resultCols+j] = sum
-		}
-	}
-
-	return Matrix{Data: resultData, Rows: resultRows, Cols: resultCols}, nil
+// Get retrieves the element at the specified row and column.
+//
+// Parameters:
+//   - row: Row index (0-based)
+//   - col: Column index (0-based)
+//
+// Returns:
+//   - float64: The value at the specified position
+//   - error: Non-nil if indices are out of bounds
+//
+// Example:
+//
+//	data := [][]float64{{1, 2}, {3, 4}}
+//	m, _ := linalg.NewMatrix(data)
+//	val, err := m.Get(1, 0) // Returns 3.0
+func (m *Matrix) Get(row, col int) (value float64, err error) {
+	value, err = m.tensor.Get(row, col)
+	return
 }
 
-// Transpose は現在の行列の転置行列を返します。
-func (m Matrix) Transpose() Matrix {
-	resultData := make([]float64, m.Rows*m.Cols)
-
-	// A[i][j] は B[j][i] になる (B.Rows = A.Cols, B.Cols = A.Rows)
-	for i := 0; i < m.Rows; i++ {
-		for j := 0; j < m.Cols; j++ {
-			originalIndex := i*m.Cols + j
-			transposedIndex := j*m.Rows + i // 新しい行列の行数は m.Cols
-			resultData[transposedIndex] = m.Data[originalIndex]
-		}
+// Set assigns a value to the element at the specified row and column.
+//
+// Parameters:
+//   - row: Row index (0-based)
+//   - col: Column index (0-based)
+//   - val: The value to assign
+//
+// Returns:
+//   - error: Non-nil if indices are out of bounds
+//
+// Example:
+//
+//	m := linalg.NewZeroMatrix(2, 2)
+//	err := m.Set(0, 1, 5.0) // Sets element at row 0, column 1 to 5.0
+func (m *Matrix) Set(row, col int, val float64) (err error) {
+	err = m.tensor.Set(val, row, col)
+	if err != nil {
+		return
 	}
-
-	return Matrix{
-		Data: resultData,
-		Rows: m.Cols, // 行数と列数が入れ替わる
-		Cols: m.Rows,
-	}
+	// Data field is automatically updated since it's a reference to tensor.Data
+	return
 }
 
-// Determinant は正方行列の行列式を計算します。
-// 3x3まではサラスの公式/余因子展開、それ以上はLU分解などに頼るのが一般的ですが、
-// ここでは余因子展開（再帰）を単純実装します。
-func (m Matrix) Determinant() (float64, error) {
-	if m.Rows != m.Cols {
-		return 0, fmt.Errorf("行列式は正方行列（%d x %d）にのみ定義されます", m.Rows, m.Cols)
+// Add returns a new matrix that is the element-wise sum of this matrix and another matrix.
+func (m *Matrix) Add(other Matrix) (matrixResult Matrix, err error) {
+	result, err := m.tensor.Add(other.tensor)
+	if err != nil {
+		err = fmt.Errorf("matrix addition error: %v", err)
+		return
 	}
-	n := m.Rows
+
+	matrixResult, err = NewMatrixFromTensor(result)
+	if err != nil {
+		err = fmt.Errorf("result matrix creation error: %v", err)
+		return
+	}
+
+	return
+}
+
+// Subtract returns a new matrix that is the element-wise difference of this matrix and another matrix.
+func (m *Matrix) Subtract(other Matrix) (matrixResult Matrix, err error) {
+	result, err := m.tensor.Subtract(other.tensor)
+	if err != nil {
+		err = fmt.Errorf("matrix subtraction error: %v", err)
+		return
+	}
+
+	matrixResult, err = NewMatrixFromTensor(result)
+	if err != nil {
+		err = fmt.Errorf("result matrix creation error: %v", err)
+		return
+	}
+
+	return
+}
+
+// Scale returns a new matrix that is this matrix multiplied by a scalar value.
+func (m *Matrix) Scale(scalar float64) (matrixResult Matrix) {
+	result := m.tensor.Scale(scalar)
+
+	matrixResult, err := NewMatrixFromTensor(result)
+	if err != nil {
+		// Return zero matrix instead of panicking
+		matrixResult = NewZeroMatrix(1, 1)
+		return
+	}
+
+	return
+}
+
+// Multiply returns a new matrix that is the product of this matrix (A) and another matrix (B), resulting in C = A * B.
+func (m *Matrix) Multiply(other Matrix) (matrixResult Matrix, err error) {
+	result, err := m.tensor.MatrixMultiply(other.tensor)
+	if err != nil {
+		err = fmt.Errorf("matrix multiplication error: %v", err)
+		return
+	}
+
+	matrixResult, err = NewMatrixFromTensor(result)
+	if err != nil {
+		err = fmt.Errorf("result matrix creation error: %v", err)
+		return
+	}
+
+	return
+}
+
+// Transpose returns the transpose of the current matrix.
+func (m *Matrix) Transpose() (matrixResult Matrix) {
+	result, err := m.tensor.Transpose()
+	if err != nil {
+		// Return zero matrix instead of panicking
+		matrixResult = NewZeroMatrix(1, 1)
+		return
+	}
+
+	matrixResult, err = NewMatrixFromTensor(result)
+	if err != nil {
+		// Return zero matrix instead of panicking
+		matrixResult = NewZeroMatrix(1, 1)
+		return
+	}
+
+	return
+}
+
+// AsTensor returns a copy of this matrix as a Tensor.
+func (m *Matrix) AsTensor() (result *Tensor) {
+	result = m.tensor.Clone()
+	return
+}
+
+// Clone creates a complete deep copy of the matrix.
+func (m *Matrix) Clone() (result Matrix) {
+	clonedTensor := m.tensor.Clone()
+	result = Matrix{
+		tensor: clonedTensor,
+		data:   clonedTensor.Data(),
+		rows:   m.rows,
+		cols:   m.cols,
+	}
+	return
+}
+
+// Determinant calculates the determinant of a square matrix.
+// For matrices up to 3x3, it uses direct formulas/cofactor expansion.
+// For larger matrices, it uses recursive cofactor expansion (computationally expensive).
+func (m *Matrix) Determinant() (det float64, err error) {
+	if m.rows != m.cols {
+		err = fmt.Errorf("determinant is only defined for square matrices (%d x %d)", m.rows, m.cols)
+		return
+	}
+	n := m.rows
 
 	if n == 1 {
-		return m.Data[0], nil
+		det, _ = m.Get(0, 0)
+		return
 	}
 	if n == 2 {
 		// ad - bc
-		return m.Data[0]*m.Data[3] - m.Data[1]*m.Data[2], nil
+		a, _ := m.Get(0, 0)
+		b, _ := m.Get(0, 1)
+		c, _ := m.Get(1, 0)
+		d, _ := m.Get(1, 1)
+		det = a*d - b*c
+		return
 	}
 
-	// 3x3以上は再帰的な余因子展開を使用（計算コストは高い）
-	var det float64
+	// For 3x3 and larger, use recursive cofactor expansion (high computational cost)
 	for j := 0; j < n; j++ {
-		// i=0 の行について余因子展開
+		// Cofactor expansion along row i=0
 		sign := 1.0
 		if j%2 != 0 {
 			sign = -1.0
 		}
 
-		// Minor行列の作成
+		// Create minor matrix
 		minorData := make([][]float64, n-1)
-		for row := 1; row < n; row++ { // 0行目を除外
+		for row := 1; row < n; row++ { // Exclude row 0
 			minorRow := make([]float64, 0, n-1)
 			for col := 0; col < n; col++ {
-				if col != j { // j列目を除外
+				if col != j { // Exclude column j
 					val, _ := m.Get(row, col)
 					minorRow = append(minorRow, val)
 				}
@@ -152,176 +361,208 @@ func (m Matrix) Determinant() (float64, error) {
 			minorData[row-1] = minorRow
 		}
 
-		minorM, _ := NewMatrix(minorData) // Minor行列
+		minorM, _ := NewMatrix(minorData) // Minor matrix
 		minorDet, _ := minorM.Determinant()
 
 		a0j, _ := m.Get(0, j)
 		det += sign * a0j * minorDet
 	}
 
-	return det, nil
+	return
 }
 
-// Inverse はガウス・ジョルダン法を使用して現在の行列の逆行列を計算します。（コードは省略せず全て記載）
-func (m Matrix) Inverse() (Matrix, error) {
-	if m.Rows != m.Cols {
-		return Matrix{}, fmt.Errorf("逆行列は正方行列（%d x %d）にのみ定義されます", m.Rows, m.Cols)
+// Inverse calculates the inverse matrix of the current matrix using Gauss-Jordan elimination.
+func (m *Matrix) Inverse() (result Matrix, err error) {
+	if m.rows != m.cols {
+		err = fmt.Errorf("inverse is only defined for square matrices (%d x %d)", m.rows, m.cols)
+		return
 	}
 
-	n := m.Rows
-	augmentedData := make([]float64, n*2*n)
-	augmentedCols := n * 2
+	n := m.rows
+	// Create augmented matrix [A|I]
+	augmented := NewZeroMatrix(n, 2*n)
 
+	// Copy original matrix to left side
 	for i := 0; i < n; i++ {
 		for j := 0; j < n; j++ {
-			augmentedData[i*augmentedCols+j] = m.Data[i*n+j]
-			if i == j {
-				augmentedData[i*augmentedCols+n+j] = 1.0
-			} else {
-				augmentedData[i*augmentedCols+n+j] = 0.0
-			}
+			val, _ := m.Get(i, j)
+			augmented.Set(i, j, val)
 		}
 	}
 
-	augmentedMatrix := Matrix{Data: augmentedData, Rows: n, Cols: augmentedCols}
+	// Set identity matrix on right side
+	for i := 0; i < n; i++ {
+		augmented.Set(i, n+i, 1.0)
+	}
+
 	const epsilon = 1e-9
 
+	// Gauss-Jordan elimination
 	for i := 0; i < n; i++ {
+		// Pivot selection
 		pivotRow := i
 		for k := i + 1; k < n; k++ {
-			if math.Abs(augmentedMatrix.Data[k*augmentedCols+i]) > math.Abs(augmentedMatrix.Data[pivotRow*augmentedCols+i]) {
+			currentVal, _ := augmented.Get(k, i)
+			pivotVal, _ := augmented.Get(pivotRow, i)
+			if math.Abs(currentVal) > math.Abs(pivotVal) {
 				pivotRow = k
 			}
 		}
 
-		if math.Abs(augmentedMatrix.Data[pivotRow*augmentedCols+i]) < epsilon {
-			return Matrix{}, fmt.Errorf("行列は特異です（行列式がゼロに近い）：逆行列が存在しません")
+		pivotVal, _ := augmented.Get(pivotRow, i)
+		if math.Abs(pivotVal) < epsilon {
+			err = fmt.Errorf("matrix is singular (determinant close to zero): inverse does not exist")
+			return
 		}
 
+		// Row swap
 		if pivotRow != i {
-			for j := 0; j < augmentedCols; j++ {
-				idx_i := i*augmentedCols + j
-				idx_pivot := pivotRow*augmentedCols + j
-				augmentedMatrix.Data[idx_i], augmentedMatrix.Data[idx_pivot] = augmentedMatrix.Data[idx_pivot], augmentedMatrix.Data[idx_i]
+			for j := 0; j < 2*n; j++ {
+				val1, _ := augmented.Get(i, j)
+				val2, _ := augmented.Get(pivotRow, j)
+				augmented.Set(i, j, val2)
+				augmented.Set(pivotRow, j, val1)
 			}
 		}
 
-		pivotVal := augmentedMatrix.Data[i*augmentedCols+i]
-		for j := i; j < augmentedCols; j++ {
-			augmentedMatrix.Data[i*augmentedCols+j] /= pivotVal
+		// Normalize pivot row
+		pivotVal, _ = augmented.Get(i, i)
+		for j := i; j < 2*n; j++ {
+			val, _ := augmented.Get(i, j)
+			augmented.Set(i, j, val/pivotVal)
 		}
 
+		// Eliminate other rows
 		for k := 0; k < n; k++ {
 			if k != i {
-				factor := augmentedMatrix.Data[k*augmentedCols+i]
-				for j := i; j < augmentedCols; j++ {
-					idx_k := k*augmentedCols + j
-					idx_i := i*augmentedCols + j
-					augmentedMatrix.Data[idx_k] -= factor * augmentedMatrix.Data[idx_i]
+				factor, _ := augmented.Get(k, i)
+				for j := i; j < 2*n; j++ {
+					kVal, _ := augmented.Get(k, j)
+					iVal, _ := augmented.Get(i, j)
+					augmented.Set(k, j, kVal-factor*iVal)
 				}
 			}
 		}
 	}
 
-	inverseData := make([]float64, n*n)
+	// Extract right side (inverse matrix)
+	result = NewZeroMatrix(n, n)
 	for i := 0; i < n; i++ {
 		for j := 0; j < n; j++ {
-			inverseData[i*n+j] = augmentedMatrix.Data[i*augmentedCols+n+j]
+			val, _ := augmented.Get(i, n+j)
+			result.Set(i, j, val)
 		}
 	}
 
-	return Matrix{Data: inverseData, Rows: n, Cols: n}, nil
+	return
 }
 
-// IsDiagonal は行列が対角行列（非対角要素が全てゼロ）であるかをチェックします。
-func (m Matrix) IsDiagonal() bool {
-	if m.Rows != m.Cols {
-		return false
-	} // 対角行列は正方行列である必要がある
+// IsDiagonal checks if the matrix is a diagonal matrix (all non-diagonal elements are zero).
+func (m *Matrix) IsDiagonal() (isDiagonal bool) {
+	if m.rows != m.cols {
+		isDiagonal = false
+		return
+	} // Diagonal matrices must be square
 
 	const epsilon = 1e-9
-	for i := 0; i < m.Rows; i++ {
-		for j := 0; j < m.Cols; j++ {
+	for i := 0; i < m.rows; i++ {
+		for j := 0; j < m.cols; j++ {
 			if i != j {
-				if math.Abs(m.Data[i*m.Cols+j]) > epsilon {
-					return false
+				val, _ := m.Get(i, j)
+				if math.Abs(val) > epsilon {
+					isDiagonal = false
+					return
 				}
 			}
 		}
 	}
-	return true
+	isDiagonal = true
+	return
 }
 
-// IsSymmetric は行列が対称行列（A = A^T）であるかをチェックします。
-func (m Matrix) IsSymmetric() bool {
-	if m.Rows != m.Cols {
-		return false
+// IsSymmetric checks if the matrix is symmetric (A = A^T).
+func (m *Matrix) IsSymmetric() (isSymmetric bool) {
+	if m.rows != m.cols {
+		isSymmetric = false
+		return
 	}
 
 	const epsilon = 1e-9
-	for i := 0; i < m.Rows; i++ {
-		for j := i + 1; j < m.Cols; j++ { // 対角要素より上の部分のみチェック
-			val_ij := m.Data[i*m.Cols+j]
-			val_ji := m.Data[j*m.Cols+i]
+	for i := 0; i < m.rows; i++ {
+		for j := i + 1; j < m.cols; j++ { // Check only upper part above diagonal
+			val_ij, _ := m.Get(i, j)
+			val_ji, _ := m.Get(j, i)
 			if math.Abs(val_ij-val_ji) > epsilon {
-				return false
+				isSymmetric = false
+				return
 			}
 		}
 	}
-	return true
+	isSymmetric = true
+	return
 }
 
-// IsUpperTriangular は行列が上三角行列（対角要素より下の要素が全てゼロ）であるかをチェックします。
-func (m Matrix) IsUpperTriangular() bool {
-	if m.Rows != m.Cols {
-		return false
+// IsUpperTriangular checks if the matrix is upper triangular (all elements below diagonal are zero).
+func (m *Matrix) IsUpperTriangular() (isUpperTriangular bool) {
+	if m.rows != m.cols {
+		isUpperTriangular = false
+		return
 	}
 
 	const epsilon = 1e-9
-	for i := 1; i < m.Rows; i++ { // 1行目から
-		for j := 0; j < i; j++ { // 対角要素より左下の要素をチェック
-			if math.Abs(m.Data[i*m.Cols+j]) > epsilon {
-				return false
+	for i := 1; i < m.rows; i++ { // From row 1
+		for j := 0; j < i; j++ { // Check elements below diagonal
+			val, _ := m.Get(i, j)
+			if math.Abs(val) > epsilon {
+				isUpperTriangular = false
+				return
 			}
 		}
 	}
-	return true
+	isUpperTriangular = true
+	return
 }
 
-// IsLowerTriangular は行列が下三角行列（対角要素より上の要素が全てゼロ）であるかをチェックします。
-func (m Matrix) IsLowerTriangular() bool {
-	if m.Rows != m.Cols {
-		return false
+// IsLowerTriangular checks if the matrix is lower triangular (all elements above diagonal are zero).
+func (m *Matrix) IsLowerTriangular() (isLowerTriangular bool) {
+	if m.rows != m.cols {
+		isLowerTriangular = false
+		return
 	}
 
 	const epsilon = 1e-9
-	for i := 0; i < m.Rows; i++ {
-		for j := i + 1; j < m.Cols; j++ { // 対角要素より右上の要素をチェック
-			if math.Abs(m.Data[i*m.Cols+j]) > epsilon {
-				return false
+	for i := 0; i < m.rows; i++ {
+		for j := i + 1; j < m.cols; j++ { // Check elements above diagonal
+			val, _ := m.Get(i, j)
+			if math.Abs(val) > epsilon {
+				isLowerTriangular = false
+				return
 			}
 		}
 	}
-	return true
+	isLowerTriangular = true
+	return
 }
 
 /*
-// --- 高度な線形代数機能のスケルトン (実装は省略) ---
+// --- Advanced linear algebra function skeletons (implementation omitted) ---
 */
 
-// PseudoInverse はムーア・ペンローズ型擬似逆行列 (A+) を計算します。
-// これは一般にSVD (特異値分解) を用いて計算されます。
+// PseudoInverse computes the Moore-Penrose pseudoinverse (A+).
+// This is generally calculated using SVD (Singular Value Decomposition).
 /*
-func (m Matrix) PseudoInverse() (Matrix, error) {
-    // 実際には SVD (Singular Value Decomposition) の実装が必要
-    return Matrix{}, fmt.Errorf("擬似逆行列の計算は未実装です（SVDが必要です）")
+func (m Matrix) PseudoInverse() (result Matrix, err error) {
+    // Actually requires SVD (Singular Value Decomposition) implementation
+    err = fmt.Errorf("pseudoinverse calculation is not implemented (SVD required)")
+    return
 }
 */
 
-// EigenSystem は固有値と固有ベクトルを計算します。
+// EigenSystem calculates eigenvalues and eigenvectors.
 /*
-func (m Matrix) EigenSystem() ([]complex128, []Vector, error) {
-    // 実際には QR法やJacobi法などの反復アルゴリズムの実装が必要
-    return nil, nil, fmt.Errorf("固有値と固有ベクトルの計算は未実装です")
+func (m Matrix) EigenSystem() (eigenValues []complex128, eigenVectors []Vector, err error) {
+    // Actually requires iterative algorithms like QR method or Jacobi method
+    err = fmt.Errorf("eigenvalue and eigenvector calculation is not implemented")
+    return
 }
 */
